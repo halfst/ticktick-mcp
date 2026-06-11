@@ -1,0 +1,10 @@
+# Stub — finalized in Slice 4 (Docker + compose).
+#
+# Plan: one `ticktick-mcp` service that builds this image, takes
+# TICKTICK_USERNAME / TICKTICK_PASSWORD / TICKTICK_TOKEN_CACHE from a (gitignored)
+# .env file, and persists the token cache on a named volume so login survives
+# restarts. No secrets committed.
+services:
+  ticktick-mcp:
+    build: .
+    # Real config (env_file, volume, restart policy) lands in Slice 4.
