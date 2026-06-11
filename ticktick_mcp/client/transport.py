@@ -37,13 +37,20 @@ class Transport:
         self._cache = TokenCache(config.token_cache_path)
         self._auth = Authenticator(config, self._http)
 
+        # Token-only mode: a session token was supplied directly (the 2FA path).
+        # We can't sign in ourselves, so an expired token can't be auto-refreshed.
+        self._token_only = config.has_session_token
+
         cached = self._cache.load()
-        # If the cached session belongs to a different account, discard its token.
-        if cached.username and cached.username != config.username:
+        if config.session_token:
+            # The env override always wins over whatever is cached.
+            cached.token = config.session_token
+        elif cached.username and cached.username != config.username:
+            # Cached session belongs to a different account: discard its token.
             cached.token = None
         if not cached.device_id:
             cached.device_id = _new_device_id()
-        cached.username = config.username
+        cached.username = config.username or cached.username
         self._state = cached
 
     # -- public API used by Slice 2 ------------------------------------------
@@ -71,6 +78,13 @@ class Transport:
 
         resp = self._send(method, path, params=params, json=json)
         if resp.status_code == 401:
+            if self._token_only:
+                # No password to sign in with (2FA path) — can't recover.
+                raise AuthError(
+                    "Session token was rejected (expired or revoked). Log into "
+                    "TickTick in a browser, complete 2FA, copy the `t` cookie, and "
+                    "update TICKTICK_SESSION_TOKEN."
+                )
             # Cached token is stale: re-auth once and retry once.
             self._authenticate()
             resp = self._send(method, path, params=params, json=json)
@@ -106,6 +120,13 @@ class Transport:
     # -- internals -----------------------------------------------------------
 
     def _authenticate(self) -> None:
+        if not self._config.can_password_login:
+            # Token-only mode with no/empty starting token: nothing to sign in with.
+            raise AuthError(
+                "No session token and no username/password available to sign in. "
+                "Set TICKTICK_SESSION_TOKEN (paste the `t` cookie from a logged-in "
+                "TickTick web session) or TICKTICK_USERNAME + TICKTICK_PASSWORD."
+            )
         token = self._auth.login(self._state.device_id)
         self._state.token = token
         self._cache.save(self._state)

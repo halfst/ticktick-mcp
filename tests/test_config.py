@@ -62,3 +62,28 @@ def test_secret_never_appears_in_repr() -> None:
 def test_direct_construction_rejects_empty_secret() -> None:
     with pytest.raises(ConfigError):
         Config(username="me@example.com", password="", token_cache_path=Path("/tmp/x"))
+
+
+def test_session_token_alone_is_valid_config() -> None:
+    cfg = load_config({"TICKTICK_SESSION_TOKEN": "tok-from-browser"})
+    assert cfg.has_session_token is True
+    assert cfg.can_password_login is False
+    assert cfg.session_token == "tok-from-browser"
+
+
+def test_session_token_redacted_in_repr() -> None:
+    cfg = load_config({"TICKTICK_SESSION_TOKEN": "tok-from-browser"})
+    assert "tok-from-browser" not in repr(cfg)
+    assert "session_token=***" in repr(cfg)
+
+
+def test_session_token_wins_when_both_modes_present() -> None:
+    cfg = load_config(
+        {
+            "TICKTICK_SESSION_TOKEN": "tok",
+            "TICKTICK_USERNAME": "me@example.com",
+            "TICKTICK_PASSWORD": SECRET,
+        }
+    )
+    assert cfg.has_session_token is True
+    assert cfg.can_password_login is True  # available as a fallback, but token wins

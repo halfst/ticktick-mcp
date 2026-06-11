@@ -38,11 +38,25 @@ endpoint or field name referenced anywhere else. Treat that as a build failure.
 
 ## 2. Auth model
 
-The v2 API authenticates with **username + password**, not OAuth.
+The v2 API authenticates with **username + password**, not OAuth. Because that
+flow has **no second-factor step**, accounts with 2FA enabled cannot use it; for
+those we accept a session token directly. There are therefore two modes:
+
+**Mode A — session-token override (`TICKTICK_SESSION_TOKEN`).** The user logs into
+the TickTick web client (completing 2FA there), copies the `t` session cookie, and
+supplies it. The client uses it as the token verbatim and **never calls `signin`**.
+No password need be set at all. The trade-off: this token **cannot be
+auto-refreshed** (refreshing would require the 2FA prompt again), so on a `401` the
+client does **not** retry — it raises a clear `AuthError` telling the user to paste
+a fresh token. This is the recommended/required path for 2FA accounts.
+
+**Mode B — username/password login.** Used when no session token is given (no-2FA
+accounts). The client signs in itself and can transparently re-auth on expiry (the
+flow below). The session token wins if both modes are configured.
 
 - Credentials come from the environment only (`TICKTICK_USERNAME`,
-  `TICKTICK_PASSWORD`) via `config.py`. They are never hardcoded, logged, or
-  committed.
+  `TICKTICK_PASSWORD`, or `TICKTICK_SESSION_TOKEN`) via `config.py`. They are never
+  hardcoded, logged, or committed.
 - On first use the client **logs in once** and receives a **session token**.
 - The token is **cached to disk** at `Config.token_cache_path`
   (`TICKTICK_TOKEN_CACHE`, default `${XDG_CACHE_HOME:-~/.cache}/ticktick-mcp/session.json`).

@@ -152,6 +152,44 @@ def test_login_challenge_raises_actionable_auth_error(tmp_path: Path) -> None:
             t.verify_auth()
 
 
+def make_token_config(tmp_path: Path, token: str) -> Config:
+    return Config(
+        session_token=token,
+        token_cache_path=tmp_path / "session.json",
+    )
+
+
+def test_session_token_override_skips_login(tmp_path: Path) -> None:
+    # The 2FA path: a browser-supplied token is used directly, never signing in.
+    config = make_token_config(tmp_path, "browser-tok")
+    server = FakeServer(valid_tokens={"browser-tok"})
+    with server.transport(config) as t:
+        summary = t.verify_auth()
+    assert summary["authenticated"] is True
+    assert server.login_count == 0
+
+
+def test_expired_session_token_raises_actionable_error_without_login(tmp_path: Path) -> None:
+    config = make_token_config(tmp_path, "stale-browser-tok")
+    server = FakeServer(valid_tokens=set())  # rejects the token -> 401
+    with server.transport(config) as t:
+        with pytest.raises(AuthError, match="TICKTICK_SESSION_TOKEN"):
+            t.verify_auth()
+    # Token-only mode must NOT attempt a password login on 401.
+    assert server.login_count == 0
+
+
+def test_session_token_overrides_a_different_cached_token(tmp_path: Path) -> None:
+    config = make_token_config(tmp_path, "env-tok")
+    config.token_cache_path.write_text(
+        json.dumps({"token": "old-cached", "device_id": "d", "username": ""})
+    )
+    server = FakeServer(valid_tokens={"env-tok"})  # only the env token is accepted
+    with server.transport(config) as t:
+        assert t.verify_auth()["authenticated"] is True
+    assert server.login_count == 0
+
+
 def test_secret_never_written_to_token_cache(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     server = FakeServer(valid_tokens=set(), next_token="tok-A")

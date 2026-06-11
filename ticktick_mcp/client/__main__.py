@@ -29,10 +29,15 @@ def main() -> int:
         print(f"Auth check failed: {exc}", file=sys.stderr)
         return 1
 
+    mode = (
+        "session-token override"
+        if config.has_session_token
+        else f"password login (token cached at {config.token_cache_path})"
+    )
     print(
-        "Authenticated OK. "
-        f"inbox_id={summary['inbox_id']} project_count={summary['project_count']} "
-        f"(token cached at {config.token_cache_path})"
+        "Authenticated OK via "
+        f"{mode}. inbox_id={summary['inbox_id']} "
+        f"project_count={summary['project_count']}"
     )
     return 0
 
