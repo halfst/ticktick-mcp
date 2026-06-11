@@ -1,0 +1,10 @@
+ticktick-mcp
+Copyright 2026 Ethan J Lewis
+
+This product is an unofficial, independent project. It is not affiliated with,
+endorsed by, or sponsored by TickTick or Appest Inc. "TickTick" is a trademark of
+its respective owner and is used here only nominatively to describe the service this
+software integrates with.
+
+This software interacts with TickTick's unofficial v2 web API, which is not a
+documented or supported public interface and may change or break at any time.
