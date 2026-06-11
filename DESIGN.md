@@ -108,32 +108,45 @@ ambiguous `datetime`:
 - **`AllDayDate(date)`** — a calendar date with no time component.
 - **`Timed(datetime, tz)`** — an instant with an explicit timezone.
 
+> **Empirically confirmed (2026-06, live v2 account).** The server stores what we
+> send for `dueDate`/`isAllDay`/`timeZone` **verbatim** — it does not re-normalize.
+> Crucially, all-day tasks created by the first-party apps store `dueDate` as
+> **local midnight converted to UTC**, with `timeZone` = the device zone. Example
+> from a real `America/Chicago` account: an all-day task on **July 1** is stored as
+> `dueDate = 2026-07-01T05:00:00.000+0000` (05:00Z = 00:00 Chicago, CDT = UTC-5),
+> `timeZone = America/Chicago`. This is why the read side **must** convert through
+> the stored `timeZone`.
+
 ### MCP input → client payload (writing)
 
-Given a task with timezone `TZ` (the account's zone, or a caller-supplied one):
-
-- **All-day** (caller gave a date, no time):
+- **All-day** (caller gave a date, no time): encode the date at **UTC midnight**.
   - `isAllDay = true`
-  - `dueDate = "<YYYY-MM-DD>T00:00:00.000+0000"` — the **literal calendar date**
-    at midnight with a **`+0000`** offset. **Do NOT** localize the date into `TZ`
-    and then convert to UTC; that is exactly the bug. The date component on the wire
-    must equal the date the caller typed.
-  - `startDate = dueDate` (single-day task).
-  - `timeZone = TZ`.
-- **Timed** (caller gave a date *and* a time):
+  - `dueDate = startDate = "<YYYY-MM-DD>T00:00:00.000+0000"`
+  - `timeZone = "UTC"`
+
+  Using UTC (rather than localizing into some `TZ`) is deliberate: the date is then
+  literally present in the string, and it is **DST-proof** — midnight in some zones
+  on some dates is ambiguous or non-existent, but UTC midnight never is. Because
+  `isAllDay` short-circuits clock interpretation in the TickTick UI, a UTC-encoded
+  all-day task displays on the same calendar date as a device-zone-encoded one.
+
+- **Timed** (caller gave a date *and* a time) with timezone `TZ` (caller-supplied,
+  else the client default `TICKTICK_TIMEZONE`, else UTC):
   - `isAllDay = false`
-  - Build a timezone-aware `datetime` in `TZ`, convert to UTC, and format as
-    `...+0000`. Here the offset conversion is correct and required.
+  - Make the `datetime` timezone-aware in `TZ`, convert to UTC, format as `...+0000`.
   - `timeZone = TZ`.
 
 ### API response → MCP output (reading)
 
-- If `isAllDay == true`: parse the **date component of `dueDate` verbatim** and
-  return a **date-only** value. Ignore the time-of-day and offset entirely — do not
-  shift by `timeZone`, do not render a clock. `2026-06-15T00:00:00.000+0000` →
-  `2026-06-15`, full stop.
-- If `isAllDay == false`: parse the full instant and present it in `timeZone`
-  (or as an offset-aware datetime), with the clock time intact.
+- If `isAllDay == true`: parse the `dueDate` instant, **convert it into the task's
+  stored `timeZone`, then take the calendar date.** Return a **date-only** value; no
+  clock. This is the load-bearing step: our own tasks store `...T00:00:00+0000`/`UTC`
+  (date falls straight out), but app-created tasks store local-midnight-UTC — e.g. a
+  Tokyo (UTC+9) all-day July 1 is `2026-06-30T15:00:00+0000`, whose **UTC** date is
+  June 30. Only converting through `timeZone` recovers July 1. Taking the raw UTC
+  date is the off-by-one bug for zones east of UTC.
+- If `isAllDay == false`: parse the full instant and present it in `timeZone` (an
+  offset-aware datetime), clock time intact.
 
 ### The invariant (headline regression test)
 

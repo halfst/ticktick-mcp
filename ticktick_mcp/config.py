@@ -59,6 +59,9 @@ class Config:
     password: str | None = field(default=None, repr=False)
     session_token: str | None = field(default=None, repr=False)
     token_cache_path: Path = field(default_factory=_default_token_cache)
+    # Default IANA zone for *timed* tasks given without an explicit zone. All-day
+    # tasks ignore this (they're encoded at UTC midnight — see client/dates.py).
+    default_timezone: str = "UTC"
 
     @property
     def has_session_token(self) -> bool:
@@ -122,4 +125,5 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         password=password,
         session_token=session_token,
         token_cache_path=token_cache_path,
+        default_timezone=(source.get("TICKTICK_TIMEZONE") or "").strip() or "UTC",
     )

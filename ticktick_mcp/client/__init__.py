@@ -8,12 +8,18 @@ Slice 1 (done) provides auth + the transport chokepoint; Slice 2 adds the typed
 endpoint methods on top of :class:`~ticktick_mcp.client.transport.Transport`.
 """
 
+from .client import TickTickClient
 from .errors import APIError, AuthError, PayloadError, TickTickError
+from .models import Project, Tag, Task
 from .transport import BASE_URL, Transport
 
 __all__ = [
+    "TickTickClient",
     "Transport",
     "BASE_URL",
+    "Task",
+    "Project",
+    "Tag",
     "TickTickError",
     "AuthError",
     "APIError",
