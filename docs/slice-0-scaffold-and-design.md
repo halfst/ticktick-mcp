@@ -38,6 +38,9 @@ the contracts the rest of the build depends on. No real feature code yet.
 
 2. **`pyproject.toml`** with deps: an MCP/FastMCP package, an HTTP client (`httpx`),
    `pydantic` for payload models. Pin nothing exotic. Target Python 3.11+.
+   - **Declare the license** so package metadata matches the repo: `license = "Apache-2.0"`
+     (SPDX expression) and the `License :: OSI Approved :: Apache Software License`
+     classifier. (`LICENSE` and `NOTICE` already exist at the repo root.)
 
 3. **`config.py`** — loads `TICKTICK_USERNAME`, `TICKTICK_PASSWORD`, and a token-cache
    path from the environment. Provides a typed config object. Raises a clear error if
@@ -65,12 +68,26 @@ the contracts the rest of the build depends on. No real feature code yet.
      Explicitly list as **out of scope for v1:** filters/smart-lists, habits,
      focus/pomodoro, attachments. (Tags ARE in v1.)
 
+## Licensing note (already in place; keep consistent)
+
+The repo is **Apache-2.0**. `LICENSE` (full Apache-2.0 text, copyright `2026 Ethan J Lewis`)
+and `NOTICE` (attribution + "not affiliated with TickTick/Appest" disclaimer) already
+exist at the repo root — do not overwrite them. This slice only needs to make the
+`pyproject.toml` metadata agree (see Deliverable 2). The SPDX identifier to use everywhere
+is `Apache-2.0`; Slice 4's README states it.
+
+Per-source-file license headers (the short "Licensed under the Apache License…"
+boilerplate) are **optional** for a project this size — skip them in this slice. If wanted
+later, Codex can stamp them across files as a mechanical pass.
+
 ## Acceptance criteria — done when
 
 - The tree above exists; package imports cleanly (`python -c "import ticktick_mcp"`).
 - `config.py` reads env vars and fails loudly when they're absent; no secret ever appears
   in a log line or in the repo.
 - `.gitignore` covers `.env` and the token cache path; `.env.example` documents every var.
+- `pyproject.toml` declares `license = "Apache-2.0"` and the OSI Apache classifier,
+  matching the existing `LICENSE`/`NOTICE` files.
 - `DESIGN.md` exists and pins down all six items above, with the **all-day date contract
   written out unambiguously enough that a later slice can implement it without rethinking
   the design.**
