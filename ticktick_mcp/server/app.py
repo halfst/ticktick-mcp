@@ -139,6 +139,309 @@ def list_tasks(
     )
 
 
+@mcp.tool
+def get_task(task_id: str) -> dict[str, Any]:
+    """Get one task by id.
+
+    Args:
+        task_id: The task id.
+
+    Returns:
+        The task object, or an {"error": ...} object on failure.
+    """
+    return handlers.get_task(get_client(), task_id=task_id)
+
+
+@mcp.tool
+def update_task(
+    task_id: str,
+    title: str | None = None,
+    content: str | None = None,
+    due: str | None = None,
+    clear_due: bool = False,
+    priority: int | None = None,
+    project_id: str | None = None,
+    tags: list[str] | None = None,
+    timezone: str | None = None,
+) -> dict[str, Any]:
+    """Update a task.
+
+    Args:
+        task_id: The task id.
+        title: New title; omit to keep the current title.
+        content: New body text; omit to keep the current body.
+        due: New due date. Use 'YYYY-MM-DD' for all-day, or 'YYYY-MM-DDTHH:MM'
+            for timed. Omit to keep the current due date.
+        clear_due: Remove the due date. Cannot be combined with due.
+        priority: 0 none, 1 low, 3 medium, 5 high; omit to keep current priority.
+        project_id: Move the task to this project id.
+        tags: Replace the task's tag list with these tag names.
+        timezone: IANA zone for a timed due date.
+
+    Returns:
+        The updated task object, or an {"error": ...} object on failure.
+    """
+    return handlers.update_task(
+        get_client(),
+        task_id=task_id,
+        title=title,
+        content=content,
+        due=due,
+        clear_due=clear_due,
+        priority=priority,
+        project_id=project_id,
+        tags=tags,
+        timezone=timezone,
+    )
+
+
+@mcp.tool
+def complete_task(task_id: str) -> dict[str, Any]:
+    """Mark a task complete.
+
+    Args:
+        task_id: The task id.
+
+    Returns:
+        The completed task object, or an {"error": ...} object on failure.
+    """
+    return handlers.complete_task(get_client(), task_id=task_id)
+
+
+@mcp.tool
+def delete_task(task_id: str, project_id: str | None = None) -> dict[str, Any]:
+    """Delete a task.
+
+    Args:
+        task_id: The task id.
+        project_id: Project id override when needed for deletion.
+
+    Returns:
+        The deleted task object, or an {"error": ...} object on failure.
+    """
+    return handlers.delete_task(get_client(), task_id=task_id, project_id=project_id)
+
+
+@mcp.tool
+def get_project(project_id: str) -> dict[str, Any]:
+    """Get one project by id.
+
+    Args:
+        project_id: The project id.
+
+    Returns:
+        The project object, or an {"error": ...} object on failure.
+    """
+    return handlers.get_project(get_client(), project_id=project_id)
+
+
+@mcp.tool
+def list_projects(include_closed: bool = False) -> dict[str, Any]:
+    """List projects.
+
+    Args:
+        include_closed: Include closed/archived projects.
+
+    Returns:
+        {"projects": [ ...project objects... ]}, or an {"error": ...} object.
+    """
+    return handlers.list_projects(get_client(), include_closed=include_closed)
+
+
+@mcp.tool
+def update_project(
+    project_id: str,
+    name: str | None = None,
+    color: str | None = None,
+) -> dict[str, Any]:
+    """Update a project.
+
+    Args:
+        project_id: The project id.
+        name: New project name; omit to keep the current name.
+        color: New hex color like '#4CA1FF'; omit to keep the current color.
+
+    Returns:
+        The updated project object, or an {"error": ...} object on failure.
+    """
+    return handlers.update_project(
+        get_client(), project_id=project_id, name=name, color=color
+    )
+
+
+@mcp.tool
+def delete_project(project_id: str) -> dict[str, Any]:
+    """Delete a project.
+
+    Args:
+        project_id: The project id.
+
+    Returns:
+        The deleted project object, or an {"error": ...} object on failure.
+    """
+    return handlers.delete_project(get_client(), project_id=project_id)
+
+
+@mcp.tool
+def create_tag(label: str, color: str | None = None) -> dict[str, Any]:
+    """Create a tag.
+
+    Args:
+        label: Display label, e.g. 'Deep Work'.
+        color: Optional hex color.
+
+    Returns:
+        The created tag object, or an {"error": ...} object on failure.
+    """
+    return handlers.create_tag(get_client(), label=label, color=color)
+
+
+@mcp.tool
+def list_tags() -> dict[str, Any]:
+    """List tags.
+
+    Returns:
+        {"tags": [ ...tag objects... ]}, or an {"error": ...} object on failure.
+    """
+    return handlers.list_tags(get_client())
+
+
+@mcp.tool
+def rename_tag(
+    name: str,
+    new_label: str,
+    color: str | None = None,
+) -> dict[str, Any]:
+    """Rename a tag.
+
+    Args:
+        name: Current tag name.
+        new_label: New display label.
+        color: Optional new hex color.
+
+    Returns:
+        The renamed tag object, or an {"error": ...} object on failure.
+    """
+    return handlers.rename_tag(
+        get_client(), name=name, new_label=new_label, color=color
+    )
+
+
+@mcp.tool
+def delete_tag(name: str) -> dict[str, Any]:
+    """Delete a tag.
+
+    Args:
+        name: Tag name.
+
+    Returns:
+        The deleted tag object, or an {"error": ...} object on failure.
+    """
+    return handlers.delete_tag(get_client(), name=name)
+
+
+@mcp.tool
+def add_tag_to_task(task_id: str, tag_name: str) -> dict[str, Any]:
+    """Add a tag to a task.
+
+    Args:
+        task_id: The task id.
+        tag_name: Tag name to add.
+
+    Returns:
+        The updated task object, or an {"error": ...} object on failure.
+    """
+    return handlers.add_tag_to_task(get_client(), task_id=task_id, tag_name=tag_name)
+
+
+@mcp.tool
+def remove_tag_from_task(task_id: str, tag_name: str) -> dict[str, Any]:
+    """Remove a tag from a task.
+
+    Args:
+        task_id: The task id.
+        tag_name: Tag name to remove.
+
+    Returns:
+        The updated task object, or an {"error": ...} object on failure.
+    """
+    return handlers.remove_tag_from_task(
+        get_client(), task_id=task_id, tag_name=tag_name
+    )
+
+
+@mcp.tool
+def get_note(note_id: str) -> dict[str, Any]:
+    """Get one Markdown note by id.
+
+    Args:
+        note_id: The note id.
+
+    Returns:
+        The note object, or an {"error": ...} object on failure.
+    """
+    return handlers.get_note(get_client(), note_id=note_id)
+
+
+@mcp.tool
+def list_notes(
+    project_id: str | None = None,
+    include_completed: bool = False,
+) -> dict[str, Any]:
+    """List Markdown notes.
+
+    Args:
+        project_id: Limit to one project id. Omit for all projects.
+        include_completed: Also include completed notes.
+
+    Returns:
+        {"notes": [ ...note objects... ]}, or an {"error": ...} object on failure.
+    """
+    return handlers.list_notes(
+        get_client(), project_id=project_id, include_completed=include_completed
+    )
+
+
+@mcp.tool
+def update_note(
+    note_id: str,
+    title: str | None = None,
+    content: str | None = None,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    """Update a Markdown note.
+
+    Args:
+        note_id: The note id.
+        title: New note title; omit to keep the current title.
+        content: New Markdown body; omit to keep the current body.
+        project_id: Move the note to this project id.
+
+    Returns:
+        The updated note object, or an {"error": ...} object on failure.
+    """
+    return handlers.update_note(
+        get_client(),
+        note_id=note_id,
+        title=title,
+        content=content,
+        project_id=project_id,
+    )
+
+
+@mcp.tool
+def delete_note(note_id: str) -> dict[str, Any]:
+    """Delete a Markdown note.
+
+    Args:
+        note_id: The note id.
+
+    Returns:
+        The deleted note object, or an {"error": ...} object on failure.
+    """
+    return handlers.delete_note(get_client(), note_id=note_id)
+
+
 def main() -> None:
     """Console-script entrypoint: run the MCP server over stdio."""
     mcp.run()

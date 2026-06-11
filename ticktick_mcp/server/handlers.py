@@ -21,8 +21,26 @@ from ..client.models import Project, Tag, Task
 
 __all__ = [
     "create_task",
+    "get_task",
+    "update_task",
+    "complete_task",
+    "delete_task",
     "create_note",
+    "get_note",
+    "list_notes",
+    "update_note",
+    "delete_note",
     "create_project",
+    "get_project",
+    "list_projects",
+    "update_project",
+    "delete_project",
+    "create_tag",
+    "list_tags",
+    "rename_tag",
+    "delete_tag",
+    "add_tag_to_task",
+    "remove_tag_from_task",
     "list_tasks",
     "ToolInputError",
 ]
@@ -151,6 +169,8 @@ def list_tasks(
     overdue: bool = False,
     include_completed: bool = False,
 ) -> dict[str, Any]:
+    if due_today and overdue:
+        raise ToolInputError("Use either 'due_today' or 'overdue', not both.")
     tasks = client.list_tasks(
         project_id=project_id,
         due_today=due_today,
@@ -158,3 +178,164 @@ def list_tasks(
         include_completed=include_completed,
     )
     return {"tasks": [_task_dict(t) for t in tasks]}
+
+
+@_safe
+def get_task(client: TickTickClient, *, task_id: str) -> dict[str, Any]:
+    return _task_dict(client.get_task(task_id))
+
+
+@_safe
+def update_task(
+    client: TickTickClient,
+    *,
+    task_id: str,
+    title: str | None = None,
+    content: str | None = None,
+    due: str | None = None,
+    clear_due: bool = False,
+    priority: int | None = None,
+    project_id: str | None = None,
+    tags: list[str] | None = None,
+    timezone: str | None = None,
+) -> dict[str, Any]:
+    parsed_due = parse_due(due)
+    if parsed_due is not None and clear_due:
+        raise ToolInputError("Provide either 'due' or 'clear_due', not both.")
+    task = client.update_task(
+        task_id,
+        title=title,
+        content=content,
+        due=parsed_due,
+        clear_due=clear_due,
+        priority=priority,
+        project_id=project_id,
+        tags=tags,
+        timezone=timezone,
+    )
+    return _task_dict(task)
+
+
+@_safe
+def complete_task(client: TickTickClient, *, task_id: str) -> dict[str, Any]:
+    return _task_dict(client.complete_task(task_id))
+
+
+@_safe
+def delete_task(
+    client: TickTickClient, *, task_id: str, project_id: str | None = None
+) -> dict[str, Any]:
+    return _task_dict(client.delete_task(task_id, project_id=project_id))
+
+
+@_safe
+def get_project(client: TickTickClient, *, project_id: str) -> dict[str, Any]:
+    return _project_dict(client.get_project(project_id))
+
+
+@_safe
+def list_projects(
+    client: TickTickClient, *, include_closed: bool = False
+) -> dict[str, Any]:
+    projects = client.list_projects(include_closed=include_closed)
+    return {"projects": [_project_dict(p) for p in projects]}
+
+
+@_safe
+def update_project(
+    client: TickTickClient,
+    *,
+    project_id: str,
+    name: str | None = None,
+    color: str | None = None,
+) -> dict[str, Any]:
+    return _project_dict(client.update_project(project_id, name=name, color=color))
+
+
+@_safe
+def delete_project(client: TickTickClient, *, project_id: str) -> dict[str, Any]:
+    return _project_dict(client.delete_project(project_id))
+
+
+@_safe
+def create_tag(
+    client: TickTickClient, *, label: str, color: str | None = None
+) -> dict[str, Any]:
+    return _tag_dict(client.create_tag(label, color=color))
+
+
+@_safe
+def list_tags(client: TickTickClient) -> dict[str, Any]:
+    return {"tags": [_tag_dict(t) for t in client.list_tags()]}
+
+
+@_safe
+def rename_tag(
+    client: TickTickClient,
+    *,
+    name: str,
+    new_label: str,
+    color: str | None = None,
+) -> dict[str, Any]:
+    return _tag_dict(client.rename_tag(name, new_label, color=color))
+
+
+@_safe
+def delete_tag(client: TickTickClient, *, name: str) -> dict[str, Any]:
+    return _tag_dict(client.delete_tag(name))
+
+
+@_safe
+def add_tag_to_task(
+    client: TickTickClient, *, task_id: str, tag_name: str
+) -> dict[str, Any]:
+    return _task_dict(client.add_tag_to_task(task_id, tag_name))
+
+
+@_safe
+def remove_tag_from_task(
+    client: TickTickClient, *, task_id: str, tag_name: str
+) -> dict[str, Any]:
+    return _task_dict(client.remove_tag_from_task(task_id, tag_name))
+
+
+@_safe
+def get_note(client: TickTickClient, *, note_id: str) -> dict[str, Any]:
+    return _task_dict(client.get_note(note_id))
+
+
+@_safe
+def list_notes(
+    client: TickTickClient,
+    *,
+    project_id: str | None = None,
+    include_completed: bool = False,
+) -> dict[str, Any]:
+    notes = client.list_notes(
+        project_id=project_id,
+        include_completed=include_completed,
+    )
+    return {"notes": [_task_dict(n) for n in notes]}
+
+
+@_safe
+def update_note(
+    client: TickTickClient,
+    *,
+    note_id: str,
+    title: str | None = None,
+    content: str | None = None,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    note = client.update_note(
+        note_id,
+        title=title,
+        content=content,
+        project_id=project_id,
+    )
+    return _task_dict(note)
+
+
+@_safe
+def delete_note(client: TickTickClient, *, note_id: str) -> dict[str, Any]:
+    return _task_dict(client.delete_note(note_id))
