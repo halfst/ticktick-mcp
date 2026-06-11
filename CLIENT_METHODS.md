@@ -50,8 +50,13 @@ calls `decode_due`. **Do not hand-roll date math.**
     all-day contract intact.
   - Delete → `{"taskId": id, "projectId": projectId}` in `delete`.
 - **Complete** → set `status` to `2` and send via `update` (status 0 = open).
-- **Read** → `GET batch/check/0`; tasks are in `syncTaskBean.update` (a list of
-  task objects). Filter client-side by `projectId`, due date, etc.
+- **Read (open tasks)** → `GET batch/check/0`; tasks are in `syncTaskBean.update`
+  (a list of task objects). Filter client-side by `projectId`, due date, etc.
+- **Read (completed tasks)** → ⚠️ `batch/check/0` returns **only uncompleted**
+  tasks. Completed tasks are fetched from **`GET project/all/completed/`** (or
+  per-project `project/{id}/completed/`), with a `limit` query param. `get_task`
+  and `list_tasks(include_completed=True)` must fall back to this endpoint — a
+  completed task is otherwise invisible (verified live; this bit Part B).
 - A **note** is just a task with `"kind": "NOTE"` and Markdown in `content`.
 - Task object keys (subset that matters): `id, projectId, title, content, kind,
   priority, status, isAllDay, startDate, dueDate, timeZone, tags, etag`.

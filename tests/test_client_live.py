@@ -68,6 +68,13 @@ def test_all_day_round_trip_live() -> None:
         raw = by_id[allday.id]
         assert decode_due(raw["dueDate"], True, raw.get("timeZone")) == d
 
+        # Complete the timed task, then confirm it's still readable — completed
+        # tasks are absent from batch/check and come from the completed endpoint.
+        client.complete_task(timed.id)
+        assert client.get_task(timed.id).status == 2
+        assert timed.id in [t.id for t in client.list_tasks(include_completed=True)]
+        assert timed.id not in [t.id for t in client.list_tasks()]
+
         # Markdown note.
         note = client.create_note(LABEL, "# Heading\n\n- **bold** item")
         created.append((note.id, note.project_id))
