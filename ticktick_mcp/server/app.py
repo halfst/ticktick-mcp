@@ -11,6 +11,7 @@ tools. Codex fills the remaining tools in Part B against the same pattern.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastmcp import FastMCP
@@ -443,8 +444,23 @@ def delete_note(note_id: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    """Console-script entrypoint: run the MCP server over stdio."""
-    mcp.run()
+    """Console-script entrypoint: run the MCP server.
+
+    Transport is chosen by environment so the same image works two ways:
+
+    - ``TICKTICK_MCP_TRANSPORT=stdio`` (default) — for an MCP host that spawns the
+      process and talks over stdin/stdout (typical local CLI integration).
+    - ``TICKTICK_MCP_TRANSPORT=http`` — a long-running HTTP server (used by the
+      Docker Compose service), bound to ``TICKTICK_MCP_HOST`` (default
+      ``0.0.0.0``) and ``TICKTICK_MCP_PORT`` (default ``8000``).
+    """
+    transport = (os.environ.get("TICKTICK_MCP_TRANSPORT") or "stdio").strip().lower()
+    if transport in ("http", "streamable-http"):
+        host = (os.environ.get("TICKTICK_MCP_HOST") or "0.0.0.0").strip()
+        port = int((os.environ.get("TICKTICK_MCP_PORT") or "8000").strip())
+        mcp.run(transport="http", host=host, port=port)
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

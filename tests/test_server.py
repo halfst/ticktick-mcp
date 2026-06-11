@@ -351,3 +351,27 @@ def test_list_tasks_due_today_and_overdue_is_input_error() -> None:
     result = handlers.list_tasks(fc, due_today=True, overdue=True)
     assert result["error"]["kind"] == "input"
     assert fc.calls == []
+
+
+# -- entrypoint transport selection ------------------------------------------
+
+def test_main_defaults_to_stdio(monkeypatch) -> None:
+    from ticktick_mcp.server import app
+
+    captured: dict = {}
+    monkeypatch.setattr(app.mcp, "run", lambda *a, **k: captured.update(args=a, kwargs=k))
+    monkeypatch.delenv("TICKTICK_MCP_TRANSPORT", raising=False)
+    app.main()
+    assert captured == {"args": (), "kwargs": {}}
+
+
+def test_main_http_transport_reads_env(monkeypatch) -> None:
+    from ticktick_mcp.server import app
+
+    captured: dict = {}
+    monkeypatch.setattr(app.mcp, "run", lambda *a, **k: captured.update(k))
+    monkeypatch.setenv("TICKTICK_MCP_TRANSPORT", "http")
+    monkeypatch.setenv("TICKTICK_MCP_HOST", "127.0.0.1")
+    monkeypatch.setenv("TICKTICK_MCP_PORT", "9001")
+    app.main()
+    assert captured == {"transport": "http", "host": "127.0.0.1", "port": 9001}

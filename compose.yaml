@@ -1,10 +1,32 @@
-# Stub — finalized in Slice 4 (Docker + compose).
+# ticktick-mcp — self-hosted MCP server, alongside your other MCP services.
 #
-# Plan: one `ticktick-mcp` service that builds this image, takes
-# TICKTICK_USERNAME / TICKTICK_PASSWORD / TICKTICK_TOKEN_CACHE from a (gitignored)
-# .env file, and persists the token cache on a named volume so login survives
-# restarts. No secrets committed.
+# Setup:
+#   1. cp .env.example .env   and fill in TICKTICK_SESSION_TOKEN (recommended,
+#      required for 2FA accounts) or TICKTICK_USERNAME + TICKTICK_PASSWORD.
+#   2. docker compose up -d
+#   3. Point your MCP host at http://<host>:8000/mcp/
+#
+# .env is gitignored and is NOT baked into the image — it is read at runtime.
 services:
   ticktick-mcp:
     build: .
-    # Real config (env_file, volume, restart policy) lands in Slice 4.
+    image: ticktick-mcp
+    container_name: ticktick-mcp
+    restart: unless-stopped
+    # Credentials + optional settings come from the (gitignored) .env file.
+    env_file:
+      - .env
+    environment:
+      TICKTICK_MCP_TRANSPORT: http
+      TICKTICK_MCP_HOST: 0.0.0.0
+      TICKTICK_MCP_PORT: "8000"
+      # Cache the session token on the persisted volume so login survives
+      # restarts (matters for username/password mode).
+      TICKTICK_TOKEN_CACHE: /data/session.json
+    ports:
+      - "8000:8000"
+    volumes:
+      - ticktick-token:/data
+
+volumes:
+  ticktick-token:

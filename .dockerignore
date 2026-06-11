@@ -1,0 +1,22 @@
+# Keep secrets and local cruft out of the build context entirely.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+.git/
+.gitignore
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+docs/
+*.md
+!README.md
+build/
+dist/
+*.egg-info/
