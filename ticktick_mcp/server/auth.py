@@ -82,4 +82,37 @@ def _build_token_auth(source: Mapping[str, str]):
 
 
 def _build_jwt_auth(source: Mapping[str, str]):
-    raise AuthConfigError("jwt mode not implemented yet")  # replaced in Task 3
+    from fastmcp.server.auth.auth import RemoteAuthProvider
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+    jwks_uri = (source.get("TICKTICK_MCP_JWT_JWKS_URI") or "").strip() or None
+    public_key = (source.get("TICKTICK_MCP_JWT_PUBLIC_KEY") or "").strip() or None
+    if bool(jwks_uri) == bool(public_key):
+        raise AuthConfigError(
+            "jwt mode requires exactly one of TICKTICK_MCP_JWT_JWKS_URI or "
+            "TICKTICK_MCP_JWT_PUBLIC_KEY (you set neither or both)."
+        )
+
+    issuer = _require(source, "TICKTICK_MCP_JWT_ISSUER")
+    audience = _require(source, "TICKTICK_MCP_JWT_AUDIENCE")
+    auth_server = _require(source, "TICKTICK_MCP_AUTH_SERVER")
+    base_url = _require(source, "TICKTICK_MCP_BASE_URL")
+
+    verifier = JWTVerifier(
+        jwks_uri=jwks_uri,
+        public_key=public_key,
+        issuer=issuer,
+        audience=audience,
+    )
+    return RemoteAuthProvider(
+        token_verifier=verifier,
+        authorization_servers=[auth_server],
+        base_url=base_url,
+    )
+
+
+def _require(source: Mapping[str, str], name: str) -> str:
+    value = (source.get(name) or "").strip()
+    if not value:
+        raise AuthConfigError(f"jwt mode requires {name}.")
+    return value

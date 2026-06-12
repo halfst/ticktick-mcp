@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from fastmcp.server.auth.auth import RemoteAuthProvider
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
 from ticktick_mcp.server.auth import AuthConfigError, build_auth
@@ -63,3 +64,55 @@ def test_token_mode_error_never_leaks_secret() -> None:
         build_auth("http", {"TICKTICK_MCP_AUTH": "token", "TICKTICK_MCP_BEARER_TOKEN": "  "})
     except AuthConfigError as exc:
         assert "  " not in str(exc) or "TICKTICK_MCP_BEARER_TOKEN" in str(exc)
+
+
+JWT_ENV = {
+    "TICKTICK_MCP_AUTH": "jwt",
+    "TICKTICK_MCP_JWT_JWKS_URI": "https://idp.example/application/o/ticktick/jwks/",
+    "TICKTICK_MCP_JWT_ISSUER": "https://idp.example/application/o/ticktick/",
+    "TICKTICK_MCP_JWT_AUDIENCE": "ticktick-mcp",
+    "TICKTICK_MCP_AUTH_SERVER": "https://idp.example/application/o/ticktick/",
+    "TICKTICK_MCP_BASE_URL": "https://ticktick.half.st",
+}
+
+
+def test_jwt_mode_with_jwks_returns_remote_auth_provider() -> None:
+    auth = build_auth("http", dict(JWT_ENV))
+    assert isinstance(auth, RemoteAuthProvider)
+
+
+def test_jwt_mode_with_public_key_returns_remote_auth_provider() -> None:
+    env = dict(JWT_ENV)
+    del env["TICKTICK_MCP_JWT_JWKS_URI"]
+    env["TICKTICK_MCP_JWT_PUBLIC_KEY"] = (
+        "-----BEGIN PUBLIC KEY-----\nMOCK\n-----END PUBLIC KEY-----"
+    )
+    auth = build_auth("http", env)
+    assert isinstance(auth, RemoteAuthProvider)
+
+
+def test_jwt_mode_requires_exactly_one_key_source() -> None:
+    env = dict(JWT_ENV)
+    del env["TICKTICK_MCP_JWT_JWKS_URI"]
+    with pytest.raises(AuthConfigError):
+        build_auth("http", env)
+    env_both = dict(JWT_ENV)
+    env_both["TICKTICK_MCP_JWT_PUBLIC_KEY"] = "-----BEGIN PUBLIC KEY-----\nX\n-----END PUBLIC KEY-----"
+    with pytest.raises(AuthConfigError):
+        build_auth("http", env_both)
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "TICKTICK_MCP_JWT_ISSUER",
+        "TICKTICK_MCP_JWT_AUDIENCE",
+        "TICKTICK_MCP_AUTH_SERVER",
+        "TICKTICK_MCP_BASE_URL",
+    ],
+)
+def test_jwt_mode_missing_required_var_raises(missing: str) -> None:
+    env = dict(JWT_ENV)
+    del env[missing]
+    with pytest.raises(AuthConfigError):
+        build_auth("http", env)
