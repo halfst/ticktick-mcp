@@ -1,0 +1,59 @@
+# Woodpecker CI — build the image ONCE on Dasha and publish it, multi-arch, to
+# both registries on a version tag. Keeping the build on our own infra (off the
+# canonical Gitea repo) means the public GHCR image traces to our source, not a
+# mirror.
+#
+#   - Gitea registry: half.st/ejlewis/ticktick-mcp   (self-hosted / deploy)
+#   - GHCR:           ghcr.io/halfst/ticktick-mcp     (public)
+#
+# Syntax targets Woodpecker 3.x (top-level `when` + `steps` + `from_secret`).
+#
+# Prerequisites (one-time):
+#   * Server: the buildx plugin runs privileged, so this image ref must be in
+#     WOODPECKER_PLUGINS_PRIVILEGED (done).
+#   * Gitea container registry enabled at half.st.
+#   * Woodpecker secrets:
+#       gitea_registry_user   — Gitea user that can push packages
+#       gitea_registry_token  — its token (scope: write:package)
+#       ghcr_user             — a GitHub username with write access to the package
+#       ghcr_token            — a GitHub PAT (scope: write:packages)
+#
+# Trigger: push a tag like `v0.1.1` to the canonical Gitea repo. The `tags` step
+# writes a .tags file (latest + full version + major.minor); the buildx step
+# reads it and pushes all of them to every repo below. arm64 is built via QEMU
+# emulation (the plugin sets up binfmt automatically).
+
+when:
+  - event: tag
+
+steps:
+  tags:
+    image: busybox
+    commands:
+      # CI_COMMIT_TAG is e.g. "v0.1.1"; strip the leading v, then emit
+      # latest, the full version, and major.minor (one tag per line).
+      - V=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
+      - MM=$(echo "$V" | cut -d. -f1,2)
+      - printf 'latest\n%s\n%s\n' "$V" "$MM" > .tags
+      - echo "publishing tags:" && cat .tags
+
+  publish:
+    image: woodpeckerci/plugin-docker-buildx
+    settings:
+      dockerfile: Dockerfile
+      platforms: linux/amd64,linux/arm64
+      # No auto_tag / tags: the plugin reads the .tags file written above.
+      repo:
+        - half.st/ejlewis/ticktick-mcp
+        - ghcr.io/halfst/ticktick-mcp
+      logins:
+        - registry: https://half.st
+          username:
+            from_secret: gitea_registry_user
+          password:
+            from_secret: gitea_registry_token
+        - registry: https://ghcr.io
+          username:
+            from_secret: ghcr_user
+          password:
+            from_secret: ghcr_token
