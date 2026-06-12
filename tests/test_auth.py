@@ -35,6 +35,16 @@ def test_unknown_mode_raises() -> None:
         build_auth("stdio", {"TICKTICK_MCP_AUTH": "bogus"})
 
 
+def test_mode_is_case_insensitive_and_stripped() -> None:
+    # The mode value is normalized via .strip().lower() before dispatch.
+    assert build_auth("http", {"TICKTICK_MCP_AUTH": "  NONE  "}) is None
+    auth = build_auth(
+        "http",
+        {"TICKTICK_MCP_AUTH": "  Token  ", "TICKTICK_MCP_BEARER_TOKEN": "x"},
+    )
+    assert isinstance(auth, StaticTokenVerifier)
+
+
 TOKEN = "shared-secret-not-real"
 
 

@@ -185,6 +185,12 @@ TICKTICK_MCP_BASE_URL=https://your-public-host
 | `TICKTICK_TIMEZONE` | no | `UTC` | Default IANA zone for *timed* tasks (all-day ignores it). |
 | `TICKTICK_MCP_TRANSPORT` | no | `stdio` | `stdio` or `http`. |
 | `TICKTICK_MCP_HOST` / `TICKTICK_MCP_PORT` | no | `0.0.0.0` / `8000` | HTTP bind address (http transport only). |
+| `TICKTICK_MCP_AUTH` | http: yes | none (stdio) | Caller-auth mode: `none`/`token`/`jwt`. http refuses to start if unset. See [Caller authentication](#caller-authentication). |
+| `TICKTICK_MCP_BEARER_TOKEN` | token mode | — | Shared bearer token clients send as `Authorization: Bearer`. |
+| `TICKTICK_MCP_JWT_JWKS_URI` / `TICKTICK_MCP_JWT_PUBLIC_KEY` | jwt mode (exactly one) | — | Key source for validating IdP-issued JWTs. |
+| `TICKTICK_MCP_JWT_ISSUER` / `TICKTICK_MCP_JWT_AUDIENCE` | jwt mode | — | Expected JWT `iss` and `aud`. |
+| `TICKTICK_MCP_AUTH_SERVER` | jwt mode | — | IdP authorization-server URL advertised via OAuth discovery. |
+| `TICKTICK_MCP_BASE_URL` | jwt mode | — | This server's public base URL (for resource metadata). |
 
 ## How it's built
 
