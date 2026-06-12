@@ -1,8 +1,20 @@
 # ticktick-mcp
 
-An **unofficial** [Model Context Protocol](https://modelcontextprotocol.io) (MCP)
-server for [TickTick](https://ticktick.com). It lets an MCP host (Claude, or any
-MCP-capable agent) manage your TickTick tasks, projects, tags, and Markdown notes.
+A complete, **unofficial** [Model Context Protocol](https://modelcontextprotocol.io)
+(MCP) server for [TickTick](https://ticktick.com). It gives an MCP host (Claude, or
+any MCP-capable agent) full control over your TickTick tasks, projects, tags, and
+Markdown notes — and it's built to run as more than a toy:
+
+- **Full CRUD**, not a read-only wrapper — 22 tools spanning tasks, projects,
+  tags, and notes.
+- **Two transports from one image** — a local **stdio** server your host spawns,
+  or a long-running **HTTP** service you deploy.
+- **Pluggable, secure-by-default caller auth** — `none` / shared `token` /
+  `jwt` (OAuth via your IdP). The HTTP transport **refuses to start unauthenticated**.
+- **Correctness under fire** — the fragile reverse-engineered API is isolated in
+  one client layer, behind typed methods and tests run against a real account.
+- **Secrets stay out of the code, image, and git** — credentials live only in the
+  environment, redacted from logs and reprs.
 
 > ### ⚠️ Read this first
 >
@@ -22,19 +34,7 @@ MCP-capable agent) manage your TickTick tasks, projects, tags, and Markdown note
 > API gives full control — at the cost of fragility, which this project isolates
 > in a single client layer.
 
-## The headline feature: all-day dates that stay all-day
-
-The reason this project exists. A task with a **date but no time** is an
-**all-day** task, and it round-trips as all-day — it is **never silently shifted to
-midnight** or to the day before/after in another timezone. If you've hit the
-"due June 15" → "shows as June 14, 5:00 PM" bug in other TickTick tooling, that
-class of bug is exactly what the date handling here is built to avoid (and is
-covered by tests against a real account).
-
-- Pass a date → `2026-06-15` → all-day task.
-- Pass a date and time → `2026-06-15T09:30` → timed task.
-
-## Features (v1)
+## Tool surface
 
 - **Tasks** — create, read, list (by project, due-today, overdue, completed),
   update, complete, delete.
@@ -43,7 +43,18 @@ covered by tests against a real account).
 - **Markdown notes** — create, read, list, update, delete (notes are note-kind
   items whose body is Markdown).
 
-Out of scope for v1: filters / smart lists, habits, focus / pomodoro, attachments.
+Out of scope: filters / smart lists, habits, focus / pomodoro, attachments.
+
+### Dates that stay correct
+
+A standout of the date handling: a task with a **date but no time** is an
+**all-day** task, and it round-trips as all-day — **never silently shifted to
+midnight** or to the day before/after in another timezone. If you've hit the
+"due June 15" → "shows as June 14, 5:00 PM" bug in other TickTick tooling, that
+class of bug is exactly what this avoids (covered by tests against a real account).
+
+- Pass a date → `2026-06-15` → all-day task.
+- Pass a date and time → `2026-06-15T09:30` → timed task.
 
 ## Setup
 
