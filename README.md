@@ -1,8 +1,20 @@
 # ticktick-mcp
 
-An **unofficial** [Model Context Protocol](https://modelcontextprotocol.io) (MCP)
-server for [TickTick](https://ticktick.com). It lets an MCP host (Claude, or any
-MCP-capable agent) manage your TickTick tasks, projects, tags, and Markdown notes.
+A complete, **unofficial** [Model Context Protocol](https://modelcontextprotocol.io)
+(MCP) server for [TickTick](https://ticktick.com). It gives an MCP host (Claude, or
+any MCP-capable agent) full control over your TickTick tasks, projects, tags, and
+Markdown notes — and it's built to run as more than a toy:
+
+- **Full CRUD**, not a read-only wrapper — 22 tools spanning tasks, projects,
+  tags, and notes.
+- **Two transports from one image** — a local **stdio** server your host spawns,
+  or a long-running **HTTP** service you deploy.
+- **Pluggable, secure-by-default caller auth** — `none` / shared `token` /
+  `jwt` (OAuth via your IdP). The HTTP transport **refuses to start unauthenticated**.
+- **Correctness under fire** — the fragile reverse-engineered API is isolated in
+  one client layer, behind typed methods and tests run against a real account.
+- **Secrets stay out of the code, image, and git** — credentials live only in the
+  environment, redacted from logs and reprs.
 
 > ### ⚠️ Read this first
 >
@@ -22,19 +34,7 @@ MCP-capable agent) manage your TickTick tasks, projects, tags, and Markdown note
 > API gives full control — at the cost of fragility, which this project isolates
 > in a single client layer.
 
-## The headline feature: all-day dates that stay all-day
-
-The reason this project exists. A task with a **date but no time** is an
-**all-day** task, and it round-trips as all-day — it is **never silently shifted to
-midnight** or to the day before/after in another timezone. If you've hit the
-"due June 15" → "shows as June 14, 5:00 PM" bug in other TickTick tooling, that
-class of bug is exactly what the date handling here is built to avoid (and is
-covered by tests against a real account).
-
-- Pass a date → `2026-06-15` → all-day task.
-- Pass a date and time → `2026-06-15T09:30` → timed task.
-
-## Features (v1)
+## Tool surface
 
 - **Tasks** — create, read, list (by project, due-today, overdue, completed),
   update, complete, delete.
@@ -43,7 +43,18 @@ covered by tests against a real account).
 - **Markdown notes** — create, read, list, update, delete (notes are note-kind
   items whose body is Markdown).
 
-Out of scope for v1: filters / smart lists, habits, focus / pomodoro, attachments.
+Out of scope: filters / smart lists, habits, focus / pomodoro, attachments.
+
+### Dates that stay correct
+
+A standout of the date handling: a task with a **date but no time** is an
+**all-day** task, and it round-trips as all-day — **never silently shifted to
+midnight** or to the day before/after in another timezone. If you've hit the
+"due June 15" → "shows as June 14, 5:00 PM" bug in other TickTick tooling, that
+class of bug is exactly what this avoids (covered by tests against a real account).
+
+- Pass a date → `2026-06-15` → all-day task.
+- Pass a date and time → `2026-06-15T09:30` → timed task.
 
 ## Setup
 
@@ -119,6 +130,52 @@ with a challenge error, log into the TickTick web client once from the same
 network (or just use the session-token method above), then retry. With 2FA
 enabled, the session-token method is the only one that works.
 
+## Caller authentication
+
+The server can authenticate the *clients that connect to it* (separate from how it
+logs in to TickTick). Pick a mode with `TICKTICK_MCP_AUTH`. On the **http**
+transport a mode is **required** — the server refuses to start if it is unset.
+**stdio** defaults to `none`.
+
+| Mode    | When to use                                  | Required vars |
+|---------|----------------------------------------------|---------------|
+| `none`  | Local stdio, or http behind your own auth    | — |
+| `token` | A personal remote server / single connector  | `TICKTICK_MCP_BEARER_TOKEN` |
+| `jwt`   | Real per-user OAuth via your IdP             | `TICKTICK_MCP_JWT_JWKS_URI` *or* `TICKTICK_MCP_JWT_PUBLIC_KEY`, `TICKTICK_MCP_JWT_ISSUER`, `TICKTICK_MCP_JWT_AUDIENCE`, `TICKTICK_MCP_AUTH_SERVER`, `TICKTICK_MCP_BASE_URL` |
+
+### token mode
+
+Set a long random secret:
+
+```bash
+TICKTICK_MCP_AUTH=token
+TICKTICK_MCP_BEARER_TOKEN=$(openssl rand -hex 32)
+```
+
+In a client (e.g. a Claude custom connector), add a custom header
+`Authorization: Bearer <token>`. Requests without it get `401`.
+
+### jwt mode
+
+The server validates IdP-issued JWTs and serves
+`/.well-known/oauth-protected-resource`, which points MCP clients at your
+authorization server so they can run the OAuth flow. Supply your IdP's values:
+
+```bash
+TICKTICK_MCP_AUTH=jwt
+TICKTICK_MCP_JWT_JWKS_URI=https://idp.example/application/o/ticktick/jwks/
+TICKTICK_MCP_JWT_ISSUER=https://idp.example/application/o/ticktick/
+TICKTICK_MCP_JWT_AUDIENCE=ticktick-mcp
+TICKTICK_MCP_AUTH_SERVER=https://idp.example/application/o/ticktick/
+TICKTICK_MCP_BASE_URL=https://your-public-host
+```
+
+> Note: when fronting this with a reverse proxy, do **not** also apply a
+> browser-cookie forward-auth layer — it blocks the unauthenticated discovery
+> calls an MCP client must make. Let JWT-bearing requests reach the app. Some MCP
+> clients require OAuth Dynamic Client Registration (DCR); if your IdP lacks DCR,
+> pre-register a client and use its Client ID in the client.
+
 ## Security
 
 - Credentials live **only** in the environment (via `.env`), never in code, the
@@ -139,6 +196,12 @@ enabled, the session-token method is the only one that works.
 | `TICKTICK_TIMEZONE` | no | `UTC` | Default IANA zone for *timed* tasks (all-day ignores it). |
 | `TICKTICK_MCP_TRANSPORT` | no | `stdio` | `stdio` or `http`. |
 | `TICKTICK_MCP_HOST` / `TICKTICK_MCP_PORT` | no | `0.0.0.0` / `8000` | HTTP bind address (http transport only). |
+| `TICKTICK_MCP_AUTH` | http: yes | none (stdio) | Caller-auth mode: `none`/`token`/`jwt`. http refuses to start if unset. See [Caller authentication](#caller-authentication). |
+| `TICKTICK_MCP_BEARER_TOKEN` | token mode | — | Shared bearer token clients send as `Authorization: Bearer`. |
+| `TICKTICK_MCP_JWT_JWKS_URI` / `TICKTICK_MCP_JWT_PUBLIC_KEY` | jwt mode (exactly one) | — | Key source for validating IdP-issued JWTs. |
+| `TICKTICK_MCP_JWT_ISSUER` / `TICKTICK_MCP_JWT_AUDIENCE` | jwt mode | — | Expected JWT `iss` and `aud`. |
+| `TICKTICK_MCP_AUTH_SERVER` | jwt mode | — | IdP authorization-server URL advertised via OAuth discovery. |
+| `TICKTICK_MCP_BASE_URL` | jwt mode | — | This server's public base URL (for resource metadata). |
 
 ## How it's built
 
