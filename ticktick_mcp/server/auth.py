@@ -68,7 +68,17 @@ def build_auth(
 
 
 def _build_token_auth(source: Mapping[str, str]):
-    raise AuthConfigError("token mode not implemented yet")  # replaced in Task 2
+    from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+
+    token = (source.get("TICKTICK_MCP_BEARER_TOKEN") or "").strip()
+    if not token:
+        raise AuthConfigError(
+            "token mode requires TICKTICK_MCP_BEARER_TOKEN (a non-empty shared "
+            "secret). Set it in the environment."
+        )
+    return StaticTokenVerifier(
+        {token: {"client_id": "ticktick-mcp", "scopes": []}}
+    )
 
 
 def _build_jwt_auth(source: Mapping[str, str]):
