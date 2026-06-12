@@ -59,11 +59,18 @@ def test_token_mode_missing_token_raises(env: dict[str, str]) -> None:
         build_auth("http", env)
 
 
-def test_token_mode_error_never_leaks_secret() -> None:
-    try:
-        build_auth("http", {"TICKTICK_MCP_AUTH": "token", "TICKTICK_MCP_BEARER_TOKEN": "  "})
-    except AuthConfigError as exc:
-        assert "  " not in str(exc) or "TICKTICK_MCP_BEARER_TOKEN" in str(exc)
+def test_token_mode_error_names_var_without_echoing_input() -> None:
+    # The only token-mode error path is an empty/whitespace token (it strips to
+    # ""). The message must name the variable and must not echo the raw input.
+    raw = "\t  \n"
+    with pytest.raises(AuthConfigError) as exc_info:
+        build_auth(
+            "http",
+            {"TICKTICK_MCP_AUTH": "token", "TICKTICK_MCP_BEARER_TOKEN": raw},
+        )
+    message = str(exc_info.value)
+    assert "TICKTICK_MCP_BEARER_TOKEN" in message
+    assert raw not in message
 
 
 JWT_ENV = {

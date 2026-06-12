@@ -14,8 +14,13 @@ Like :mod:`ticktick_mcp.config`, this module never puts a secret value into a
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 
+# The ``AuthProvider`` base type is cheap and needed for the public signature, so
+# it is imported here. The concrete providers (StaticTokenVerifier, JWTVerifier,
+# RemoteAuthProvider) pull in fastmcp's auth subsystem and are deferred into the
+# private builders below so importing this module stays light.
 from fastmcp.server.auth.auth import AuthProvider
 
 __all__ = ["AuthConfigError", "build_auth"]
@@ -40,8 +45,6 @@ def build_auth(
     :class:`AuthConfigError` for an unset mode on an http transport, an unknown
     mode value, or a mode missing its required variables.
     """
-    import os
-
     source = os.environ if env is None else env
     raw = (source.get("TICKTICK_MCP_AUTH") or "").strip().lower()
 
@@ -67,7 +70,7 @@ def build_auth(
     )
 
 
-def _build_token_auth(source: Mapping[str, str]):
+def _build_token_auth(source: Mapping[str, str]) -> AuthProvider:
     from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
     token = (source.get("TICKTICK_MCP_BEARER_TOKEN") or "").strip()
@@ -76,12 +79,14 @@ def _build_token_auth(source: Mapping[str, str]):
             "token mode requires TICKTICK_MCP_BEARER_TOKEN (a non-empty shared "
             "secret). Set it in the environment."
         )
+    # StaticTokenVerifier maps each accepted token to its claims; a single shared
+    # bearer caller needs no scopes.
     return StaticTokenVerifier(
         {token: {"client_id": "ticktick-mcp", "scopes": []}}
     )
 
 
-def _build_jwt_auth(source: Mapping[str, str]):
+def _build_jwt_auth(source: Mapping[str, str]) -> AuthProvider:
     from fastmcp.server.auth.auth import RemoteAuthProvider
     from fastmcp.server.auth.providers.jwt import JWTVerifier
 
