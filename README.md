@@ -119,6 +119,52 @@ with a challenge error, log into the TickTick web client once from the same
 network (or just use the session-token method above), then retry. With 2FA
 enabled, the session-token method is the only one that works.
 
+## Caller authentication
+
+The server can authenticate the *clients that connect to it* (separate from how it
+logs in to TickTick). Pick a mode with `TICKTICK_MCP_AUTH`. On the **http**
+transport a mode is **required** — the server refuses to start if it is unset.
+**stdio** defaults to `none`.
+
+| Mode    | When to use                                  | Required vars |
+|---------|----------------------------------------------|---------------|
+| `none`  | Local stdio, or http behind your own auth    | — |
+| `token` | A personal remote server / single connector  | `TICKTICK_MCP_BEARER_TOKEN` |
+| `jwt`   | Real per-user OAuth via your IdP             | `TICKTICK_MCP_JWT_JWKS_URI` *or* `TICKTICK_MCP_JWT_PUBLIC_KEY`, `TICKTICK_MCP_JWT_ISSUER`, `TICKTICK_MCP_JWT_AUDIENCE`, `TICKTICK_MCP_AUTH_SERVER`, `TICKTICK_MCP_BASE_URL` |
+
+### token mode
+
+Set a long random secret:
+
+```bash
+TICKTICK_MCP_AUTH=token
+TICKTICK_MCP_BEARER_TOKEN=$(openssl rand -hex 32)
+```
+
+In a client (e.g. a Claude custom connector), add a custom header
+`Authorization: Bearer <token>`. Requests without it get `401`.
+
+### jwt mode
+
+The server validates IdP-issued JWTs and serves
+`/.well-known/oauth-protected-resource`, which points MCP clients at your
+authorization server so they can run the OAuth flow. Supply your IdP's values:
+
+```bash
+TICKTICK_MCP_AUTH=jwt
+TICKTICK_MCP_JWT_JWKS_URI=https://idp.example/application/o/ticktick/jwks/
+TICKTICK_MCP_JWT_ISSUER=https://idp.example/application/o/ticktick/
+TICKTICK_MCP_JWT_AUDIENCE=ticktick-mcp
+TICKTICK_MCP_AUTH_SERVER=https://idp.example/application/o/ticktick/
+TICKTICK_MCP_BASE_URL=https://your-public-host
+```
+
+> Note: when fronting this with a reverse proxy, do **not** also apply a
+> browser-cookie forward-auth layer — it blocks the unauthenticated discovery
+> calls an MCP client must make. Let JWT-bearing requests reach the app. Some MCP
+> clients require OAuth Dynamic Client Registration (DCR); if your IdP lacks DCR,
+> pre-register a client and use its Client ID in the client.
+
 ## Security
 
 - Credentials live **only** in the environment (via `.env`), never in code, the
