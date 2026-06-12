@@ -170,8 +170,12 @@ TICKTICK_MCP_AUTH=token
 TICKTICK_MCP_BEARER_TOKEN=$(openssl rand -hex 32)
 ```
 
-In a client (e.g. a Claude custom connector), add a custom header
+In a client that supports custom headers (e.g. the Claude Code CLI), add
 `Authorization: Bearer <token>`. Requests without it get `401`.
+
+> Note: Claude **Desktop**'s custom-connector UI only offers OAuth Client
+> ID/Secret — there is no custom-header field — so it can't use token mode. Use
+> `jwt` mode for Desktop.
 
 ### jwt mode
 
