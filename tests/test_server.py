@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 from datetime import date, datetime
 
+import pytest
+
 from ticktick_mcp.client import APIError, AuthError
 from ticktick_mcp.client.models import Project, Tag, Task
 from ticktick_mcp.server import handlers
@@ -373,5 +375,32 @@ def test_main_http_transport_reads_env(monkeypatch) -> None:
     monkeypatch.setenv("TICKTICK_MCP_TRANSPORT", "http")
     monkeypatch.setenv("TICKTICK_MCP_HOST", "127.0.0.1")
     monkeypatch.setenv("TICKTICK_MCP_PORT", "9001")
+    monkeypatch.setenv("TICKTICK_MCP_AUTH", "none")
     app.main()
     assert captured == {"transport": "http", "host": "127.0.0.1", "port": 9001}
+
+
+def test_main_http_without_auth_mode_refuses_to_start(monkeypatch) -> None:
+    import ticktick_mcp.server.app as app
+    from ticktick_mcp.server.auth import AuthConfigError
+
+    monkeypatch.setenv("TICKTICK_MCP_TRANSPORT", "http")
+    monkeypatch.delenv("TICKTICK_MCP_AUTH", raising=False)
+    # mcp.run must never be reached when auth config is invalid.
+    monkeypatch.setattr(app.mcp, "run", lambda *a, **k: pytest.fail("run() should not be called"))
+
+    with pytest.raises(AuthConfigError):
+        app.main()
+
+
+def test_main_stdio_sets_no_auth_and_runs(monkeypatch) -> None:
+    import ticktick_mcp.server.app as app
+
+    monkeypatch.setenv("TICKTICK_MCP_TRANSPORT", "stdio")
+    monkeypatch.delenv("TICKTICK_MCP_AUTH", raising=False)
+    called = {}
+    monkeypatch.setattr(app.mcp, "run", lambda *a, **k: called.setdefault("ran", True))
+
+    app.main()
+    assert called.get("ran") is True
+    assert app.mcp.auth is None

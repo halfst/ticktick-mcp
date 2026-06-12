@@ -19,6 +19,7 @@ from fastmcp import FastMCP
 from ..client import TickTickClient
 from ..config import load_config
 from . import handlers
+from .auth import build_auth
 
 mcp: FastMCP = FastMCP(
     name="ticktick-mcp",
@@ -453,9 +454,15 @@ def main() -> None:
     - ``TICKTICK_MCP_TRANSPORT=http`` — a long-running HTTP server (used by the
       Docker Compose service), bound to ``TICKTICK_MCP_HOST`` (default
       ``0.0.0.0``) and ``TICKTICK_MCP_PORT`` (default ``8000``).
+
+    Caller authentication is selected by ``TICKTICK_MCP_AUTH`` (see
+    :mod:`ticktick_mcp.server.auth`); http refuses to start without an explicit
+    mode.
     """
     transport = (os.environ.get("TICKTICK_MCP_TRANSPORT") or "stdio").strip().lower()
-    if transport in ("http", "streamable-http"):
+    normalized = "http" if transport in ("http", "streamable-http") else "stdio"
+    mcp.auth = build_auth(normalized, os.environ)
+    if normalized == "http":
         host = (os.environ.get("TICKTICK_MCP_HOST") or "0.0.0.0").strip()
         port = int((os.environ.get("TICKTICK_MCP_PORT") or "8000").strip())
         mcp.run(transport="http", host=host, port=port)
