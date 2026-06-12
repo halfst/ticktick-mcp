@@ -92,6 +92,24 @@ restarts. Check it's up:
 docker compose logs -f ticktick-mcp
 ```
 
+#### Use a prebuilt image (skip the local build)
+
+Prebuilt **multi-arch images (amd64 + arm64)** are published on every release, so
+you can pull instead of building. Point your `compose.yaml` at an image rather
+than `build:`:
+
+```yaml
+services:
+  ticktick-mcp:
+    image: ghcr.io/halfst/ticktick-mcp:0.1.1   # public (GHCR)
+    # image: half.st/ejlewis/ticktick-mcp:0.1.1  # self-hosted (Gitea registry)
+```
+
+Both registries serve the same image, built from the canonical source and tagged
+by version (`0.1.1`, `0.1`) plus a moving `latest`. Pin a version for deploys; use
+`latest` for "always newest". Gitea registry for in-network deployments, GHCR for
+everything else.
+
 ### 3. Wire it into your MCP host
 
 The container serves the **streamable HTTP** transport at:
