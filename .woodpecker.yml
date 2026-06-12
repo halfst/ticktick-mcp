@@ -19,9 +19,9 @@
 #       ghcr_token            — a GitHub PAT (scope: write:packages)
 #
 # Trigger: push a tag like `v0.1.1` to the canonical Gitea repo. The `tags` step
-# writes a .tags file (latest + full version + major.minor); the buildx step
-# reads it and pushes all of them to every repo below. arm64 is built via QEMU
-# emulation (the plugin sets up binfmt automatically).
+# writes a .tags file (latest + version + major.minor); the buildx step reads it
+# and pushes all of them to every repo below. arm64 is built via QEMU emulation
+# (the plugin sets up binfmt automatically).
 
 when:
   - event: tag
@@ -30,12 +30,13 @@ steps:
   tags:
     image: busybox
     commands:
-      # CI_COMMIT_TAG is e.g. "v0.1.1"; strip the leading v, then emit
-      # latest, the full version, and major.minor (one tag per line).
+      # CI_COMMIT_TAG is e.g. "v0.1.1". Strip the leading v, then write a
+      # COMMA-separated tag list (the plugin reads .tags split on commas):
+      # latest, the full version, and major.minor. No trailing newline.
       - V=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
       - MM=$(echo "$V" | cut -d. -f1,2)
-      - printf 'latest\n%s\n%s\n' "$V" "$MM" > .tags
-      - echo "publishing tags:" && cat .tags
+      - printf 'latest,%s,%s' "$V" "$MM" > .tags
+      - echo "publishing tags:" && cat .tags && echo
 
   publish:
     image: woodpeckerci/plugin-docker-buildx
