@@ -483,6 +483,36 @@ def test_create_note_sets_column_and_assignee(tmp_path) -> None:
     assert add["assignee"] == 121024798
 
 
+def test_update_task_sets_column_and_assignee(tmp_path) -> None:
+    state = {
+        "inboxId": INBOX,
+        "syncTaskBean": {"update": [{"id": "t1", "projectId": "p1", "title": "A", "kind": "TEXT"}]},
+        "projectProfiles": [],
+        "tags": [],
+    }
+    client, ft = make_client(tmp_path, state=state)
+    client.update_task("t1", column_id="col-closed", assignee=121024798)
+    upd = ft.last_update("batch/task")
+    assert upd["columnId"] == "col-closed"
+    assert upd["assignee"] == 121024798
+
+
+def test_update_note_sets_column(tmp_path) -> None:
+    state = {
+        "inboxId": INBOX,
+        "syncTaskBean": {
+            "update": [{"id": "n1", "projectId": "p1", "title": "N", "kind": "NOTE"}]
+        },
+        "projectProfiles": [],
+        "tags": [],
+    }
+    client, ft = make_client(tmp_path, state=state)
+    client.update_note("n1", column_id="col-closed", assignee=121024798)
+    upd = ft.last_update("batch/task")
+    assert upd["columnId"] == "col-closed"
+    assert upd["assignee"] == 121024798
+
+
 def test_note_part_b_methods(tmp_path: Path) -> None:
     client, ft = make_client(tmp_path, state=state_with_items())
 

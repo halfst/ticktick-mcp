@@ -401,6 +401,8 @@ class TickTickClient:
         project_id: str | None = None,
         tags: list[str] | None = None,
         timezone: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Update a task via ``batch/task`` while preserving existing date fields."""
         if due is not None and clear_due:
@@ -417,6 +419,10 @@ class TickTickClient:
             payload["projectId"] = project_id
         if tags is not None:
             payload["tags"] = [self._tag_name(tag) for tag in tags]
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         if clear_due:
             for key in ("isAllDay", "startDate", "dueDate", "timeZone"):
                 payload.pop(key, None)
@@ -597,6 +603,8 @@ class TickTickClient:
         title: str | None = None,
         content: str | None = None,
         project_id: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Update a Markdown note via ``batch/task``."""
         payload = self._find_raw_task(note_id, kind="NOTE")
@@ -606,6 +614,10 @@ class TickTickClient:
             payload["content"] = content
         if project_id is not None:
             payload["projectId"] = project_id
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         payload["kind"] = "NOTE"
         return self._update_task_payload(payload, "note")
 
