@@ -102,9 +102,9 @@ def create_note(
         title: The note title.
         content: Markdown body — headings, lists, bold, etc. render in TickTick.
         project_id: Target project id. Defaults to the inbox.
-        column_id: Place the task in this kanban column id (from list_columns).
+        column_id: Place the note in this kanban column id (from list_columns).
             Omit to use the project default. Only meaningful in kanban projects.
-        assignee: User id to assign the task to (from list_project_members). Omit
+        assignee: User id to assign the note to (from list_project_members). Omit
             to leave unassigned. Only meaningful in shared projects.
 
     Returns:
@@ -479,9 +479,9 @@ def update_note(
         title: New note title; omit to keep the current title.
         content: New Markdown body; omit to keep the current body.
         project_id: Move the note to this project id.
-        column_id: Place the task in this kanban column id (from list_columns).
+        column_id: Place the note in this kanban column id (from list_columns).
             Omit to use the project default. Only meaningful in kanban projects.
-        assignee: User id to assign the task to (from list_project_members). Omit
+        assignee: User id to assign the note to (from list_project_members). Omit
             to leave unassigned. Only meaningful in shared projects.
 
     Returns:
