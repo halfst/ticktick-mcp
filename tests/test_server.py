@@ -362,6 +362,8 @@ def test_app_registers_reference_tools() -> None:
         "list_notes",
         "update_note",
         "delete_note",
+        "list_columns",
+        "list_project_members",
     } <= names
 
 
