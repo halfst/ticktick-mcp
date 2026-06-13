@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .dates import decode_due
 
-__all__ = ["Task", "Project", "Tag", "TaskKind"]
+__all__ = ["Task", "Project", "Tag", "Column", "Member", "TaskKind"]
 
 # v2 task `kind` values seen on the wire: "TEXT" (normal), "CHECKLIST", "NOTE".
 TaskKind = str
@@ -110,4 +110,48 @@ class Tag(BaseModel):
             label=raw.get("label") or raw.get("rawName") or raw["name"],
             color=raw.get("color"),
             raw_name=raw.get("rawName"),
+        )
+
+
+class Column(BaseModel):
+    """A kanban column (swimlane) within a project."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    project_id: str | None = None
+    name: str = ""
+    sort_order: int | None = None
+    etag: str | None = None
+
+    @classmethod
+    def from_api(cls, raw: dict[str, Any]) -> "Column":
+        return cls(
+            id=raw["id"],
+            project_id=raw.get("projectId"),
+            name=raw.get("name") or "",
+            sort_order=raw.get("sortOrder"),
+            etag=raw.get("etag"),
+        )
+
+
+class Member(BaseModel):
+    """A member of a shared project (for resolving a person to an assignee id)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: int
+    display_name: str = ""
+    username: str | None = None
+    is_owner: bool = False
+    permission: str | None = None
+
+    @classmethod
+    def from_api(cls, raw: dict[str, Any]) -> "Member":
+        return cls(
+            user_id=raw["userId"],
+            display_name=raw.get("displayName") or "",
+            username=raw.get("username"),
+            is_owner=bool(raw.get("isOwner")),
+            permission=raw.get("permission"),
         )

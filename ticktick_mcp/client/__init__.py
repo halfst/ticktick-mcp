@@ -10,7 +10,7 @@ endpoint methods on top of :class:`~ticktick_mcp.client.transport.Transport`.
 
 from .client import TickTickClient
 from .errors import APIError, AuthError, PayloadError, TickTickError
-from .models import Project, Tag, Task
+from .models import Column, Member, Project, Tag, Task
 from .transport import BASE_URL, Transport
 
 __all__ = [
@@ -20,6 +20,8 @@ __all__ = [
     "Task",
     "Project",
     "Tag",
+    "Column",
+    "Member",
     "TickTickError",
     "AuthError",
     "APIError",

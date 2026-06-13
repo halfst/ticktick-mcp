@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ticktick_mcp.client import APIError, Project, Tag, Task, TickTickClient
+from ticktick_mcp.client import APIError, Column, Member, Project, Tag, Task, TickTickClient
 from ticktick_mcp.config import Config
 
 INBOX = "inbox-abc"
@@ -399,6 +399,31 @@ def test_task_from_api_normalizes_zero_assignee_to_none() -> None:
     task = Task.from_api({"id": "t2", "assignee": 0})
     assert task.assignee is None
     assert task.column_id is None
+
+
+def test_column_from_api() -> None:
+    col = Column.from_api(
+        {"id": "c1", "projectId": "p1", "name": "Closed", "sortOrder": 131071, "etag": "e1"}
+    )
+    assert (col.id, col.project_id, col.name, col.sort_order) == ("c1", "p1", "Closed", 131071)
+
+
+def test_member_from_api() -> None:
+    m = Member.from_api(
+        {
+            "userId": 121024798,
+            "username": "a@example.com",
+            "displayName": "Annemarie",
+            "isOwner": False,
+            "permission": "write",
+        }
+    )
+    assert (m.user_id, m.display_name, m.is_owner, m.permission) == (
+        121024798,
+        "Annemarie",
+        False,
+        "write",
+    )
 
 
 def test_note_part_b_methods(tmp_path: Path) -> None:
