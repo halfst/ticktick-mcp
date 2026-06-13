@@ -239,6 +239,8 @@ class TickTickClient:
         due: date | datetime | None = None,
         priority: int = 0,
         timezone: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Create a task. **This is the canonical reference method** — it implements
         the all-day date contract that every other dated task method reuses.
@@ -270,10 +272,20 @@ class TickTickClient:
             payload.update(
                 isAllDay=is_all_day, startDate=due_str, dueDate=due_str, timeZone=tz
             )
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         return self._add_task_payload(payload)
 
     def create_note(
-        self, title: str, content: str, *, project_id: str | None = None
+        self,
+        title: str,
+        content: str,
+        *,
+        project_id: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Create a Markdown note (a task with ``kind == "NOTE"``).
 
@@ -291,6 +303,10 @@ class TickTickClient:
             "kind": "NOTE",
             "content": content,
         }
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         return self._add_task_payload(payload)
 
     def create_project(self, name: str, *, color: str | None = None) -> Project:

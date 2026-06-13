@@ -460,6 +460,29 @@ def test_list_project_members_hits_users_endpoint(tmp_path) -> None:
     assert [(m.user_id, m.display_name) for m in result] == [(1, "Ethan"), (2, "Annemarie")]
 
 
+def test_create_task_sets_column_and_assignee(tmp_path) -> None:
+    client, ft = make_client(tmp_path)
+    client.create_task("X", project_id="p1", column_id="col-new", assignee=121024798)
+    add = ft.last_add("batch/task")
+    assert add["columnId"] == "col-new"
+    assert add["assignee"] == 121024798
+
+
+def test_create_task_omits_column_and_assignee_when_unset(tmp_path) -> None:
+    client, ft = make_client(tmp_path)
+    client.create_task("X", project_id="p1")
+    add = ft.last_add("batch/task")
+    assert "columnId" not in add and "assignee" not in add
+
+
+def test_create_note_sets_column_and_assignee(tmp_path) -> None:
+    client, ft = make_client(tmp_path)
+    client.create_note("X", "body", project_id="p1", column_id="col-new", assignee=121024798)
+    add = ft.last_add("batch/task")
+    assert add["columnId"] == "col-new"
+    assert add["assignee"] == 121024798
+
+
 def test_note_part_b_methods(tmp_path: Path) -> None:
     client, ft = make_client(tmp_path, state=state_with_items())
 
