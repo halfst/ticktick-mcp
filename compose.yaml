@@ -13,7 +13,7 @@ services:
   ticktick-mcp:
     # Pulls the prebuilt multi-arch image. To build from source instead,
     # replace this line with `build: .`.
-    image: ghcr.io/halfst/ticktick-mcp:0.1.1
+    image: ghcr.io/halfst/ticktick-mcp:0.1.2
     container_name: ticktick-mcp
     restart: unless-stopped
     # Credentials + optional settings come from the (gitignored) .env file.

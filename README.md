@@ -90,7 +90,7 @@ Drop this `compose.yaml` next to your `.env`:
 ```yaml
 services:
   ticktick-mcp:
-    image: ghcr.io/halfst/ticktick-mcp:0.1.1
+    image: ghcr.io/halfst/ticktick-mcp:0.1.2
     container_name: ticktick-mcp
     restart: unless-stopped
     env_file:
@@ -109,7 +109,7 @@ volumes:
   ticktick-token:
 ```
 
-The image is tagged by version (`0.1.1`, `0.1`) plus a moving `latest` — pin a
+The image is tagged by version (`0.1.2`, `0.1`) plus a moving `latest` — pin a
 version for deploys, or use `latest` for "always newest".
 
 > The HTTP transport **requires a caller-auth mode**: set `TICKTICK_MCP_AUTH` in
