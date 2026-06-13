@@ -497,6 +497,21 @@ def test_update_task_sets_column_and_assignee(tmp_path) -> None:
     assert upd["assignee"] == 121024798
 
 
+def test_update_task_assignee_zero_reaches_wire(tmp_path) -> None:
+    # assignee=0 is the unassign value and MUST reach the payload — guards the
+    # `is not None` check against being weakened to a truthiness test.
+    state = {
+        "inboxId": INBOX,
+        "syncTaskBean": {"update": [{"id": "t1", "projectId": "p1", "title": "A", "kind": "TEXT"}]},
+        "projectProfiles": [],
+        "tags": [],
+    }
+    client, ft = make_client(tmp_path, state=state)
+    client.update_task("t1", assignee=0)
+    upd = ft.last_update("batch/task")
+    assert upd["assignee"] == 0
+
+
 def test_update_note_sets_column(tmp_path) -> None:
     state = {
         "inboxId": INBOX,

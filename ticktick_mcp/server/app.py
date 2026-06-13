@@ -205,7 +205,8 @@ def update_task(
         column_id: Place the task in this kanban column id (from list_columns).
             Omit to use the project default. Only meaningful in kanban projects.
         assignee: User id to assign the task to (from list_project_members). Omit
-            to leave unassigned. Only meaningful in shared projects.
+            to leave it unchanged, or pass 0 to clear an existing assignee. Only
+            meaningful in shared projects.
 
     Returns:
         The updated task object, or an {"error": ...} object on failure.
@@ -482,7 +483,8 @@ def update_note(
         column_id: Place the note in this kanban column id (from list_columns).
             Omit to use the project default. Only meaningful in kanban projects.
         assignee: User id to assign the note to (from list_project_members). Omit
-            to leave unassigned. Only meaningful in shared projects.
+            to leave it unchanged, or pass 0 to clear an existing assignee. Only
+            meaningful in shared projects.
 
     Returns:
         The updated note object, or an {"error": ...} object on failure.
