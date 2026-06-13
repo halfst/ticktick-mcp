@@ -381,6 +381,26 @@ def test_tag_part_b_methods(tmp_path: Path) -> None:
     assert deleted.name == "deep work"
 
 
+def test_task_from_api_surfaces_column_and_assignee() -> None:
+    raw = {
+        "id": "t1",
+        "projectId": "p1",
+        "title": "Shared",
+        "kind": "TEXT",
+        "columnId": "col-new",
+        "assignee": 121024798,
+    }
+    task = Task.from_api(raw)
+    assert task.column_id == "col-new"
+    assert task.assignee == 121024798
+
+
+def test_task_from_api_normalizes_zero_assignee_to_none() -> None:
+    task = Task.from_api({"id": "t2", "assignee": 0})
+    assert task.assignee is None
+    assert task.column_id is None
+
+
 def test_note_part_b_methods(tmp_path: Path) -> None:
     client, ft = make_client(tmp_path, state=state_with_items())
 

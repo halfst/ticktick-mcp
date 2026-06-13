@@ -37,6 +37,8 @@ class Task(BaseModel):
     due: date | datetime | None = None
     timezone: str | None = None
     tags: list[str] = []
+    column_id: str | None = None
+    assignee: int | None = None
     etag: str | None = None
 
     @property
@@ -59,6 +61,8 @@ class Task(BaseModel):
             due=decode_due(raw.get("dueDate"), is_all_day, tz),
             timezone=tz,
             tags=list(raw.get("tags") or []),
+            column_id=raw.get("columnId"),
+            assignee=raw.get("assignee") or None,
             etag=raw.get("etag"),
         )
 
