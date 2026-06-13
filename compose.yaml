@@ -3,14 +3,17 @@
 # Setup:
 #   1. cp .env.example .env   and fill in TICKTICK_SESSION_TOKEN (recommended,
 #      required for 2FA accounts) or TICKTICK_USERNAME + TICKTICK_PASSWORD.
+#      The HTTP transport also requires a caller-auth mode — set
+#      TICKTICK_MCP_AUTH in .env (see the README "Caller authentication").
 #   2. docker compose up -d
 #   3. Point your MCP host at http://<host>:8000/mcp/
 #
 # .env is gitignored and is NOT baked into the image — it is read at runtime.
 services:
   ticktick-mcp:
-    build: .
-    image: ticktick-mcp
+    # Pulls the prebuilt multi-arch image. To build from source instead,
+    # replace this line with `build: .`.
+    image: ghcr.io/halfst/ticktick-mcp:0.1.1
     container_name: ticktick-mcp
     restart: unless-stopped
     # Credentials + optional settings come from the (gitignored) .env file.

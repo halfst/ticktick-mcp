@@ -78,37 +78,54 @@ cp .env.example .env
 
 `.env` is gitignored and is never baked into the image.
 
-### 2. Run with Docker Compose
+### 2. Run with Docker Compose (recommended)
 
-```bash
-docker compose up -d
-```
+This is the easiest way to run the server. It pulls a prebuilt **multi-arch image
+(amd64 + arm64)** — no local build needed — and serves HTTP on port `8000`,
+persisting the session-token cache in a named volume (`ticktick-token`) so it
+survives restarts.
 
-This builds the image and starts the server over HTTP on port `8000`, persisting
-the session-token cache in a named volume (`ticktick-token`) so it survives
-restarts. Check it's up:
-
-```bash
-docker compose logs -f ticktick-mcp
-```
-
-#### Use a prebuilt image (skip the local build)
-
-Prebuilt **multi-arch images (amd64 + arm64)** are published on every release, so
-you can pull instead of building. Point your `compose.yaml` at an image rather
-than `build:`:
+Drop this `compose.yaml` next to your `.env`:
 
 ```yaml
 services:
   ticktick-mcp:
-    image: ghcr.io/halfst/ticktick-mcp:0.1.1   # public (GHCR)
-    # image: half.st/ejlewis/ticktick-mcp:0.1.1  # self-hosted (Gitea registry)
+    image: ghcr.io/halfst/ticktick-mcp:0.1.1
+    container_name: ticktick-mcp
+    restart: unless-stopped
+    env_file:
+      - .env                      # TickTick creds + TICKTICK_MCP_AUTH (see below)
+    environment:
+      TICKTICK_MCP_TRANSPORT: http
+      TICKTICK_MCP_HOST: 0.0.0.0
+      TICKTICK_MCP_PORT: "8000"
+      TICKTICK_TOKEN_CACHE: /data/session.json
+    ports:
+      - "8000:8000"
+    volumes:
+      - ticktick-token:/data
+
+volumes:
+  ticktick-token:
 ```
 
-Both registries serve the same image, built from the canonical source and tagged
-by version (`0.1.1`, `0.1`) plus a moving `latest`. Pin a version for deploys; use
-`latest` for "always newest". Gitea registry for in-network deployments, GHCR for
-everything else.
+The image is tagged by version (`0.1.1`, `0.1`) plus a moving `latest` — pin a
+version for deploys, or use `latest` for "always newest".
+
+> The HTTP transport **requires a caller-auth mode**: set `TICKTICK_MCP_AUTH` in
+> your `.env` or the server refuses to start. For a quick private setup use
+> `token` (see [Caller authentication](#caller-authentication)).
+
+Then bring it up and check it's running:
+
+```bash
+docker compose up -d
+docker compose logs -f ticktick-mcp
+```
+
+> **Build from source instead?** Clone the repo and replace the `image:` line with
+> `build: .`, then `docker compose up -d --build`. (A ready-made `compose.yaml` is
+> in the repo root.)
 
 ### 3. Wire it into your MCP host
 
