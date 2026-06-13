@@ -28,6 +28,8 @@ class FakeTransport:
         fail_ids: set[str] | None = None,
         state: dict[str, Any] | None = None,
         completed: list[dict[str, Any]] | None = None,
+        columns: list[dict[str, Any]] | None = None,
+        members: list[dict[str, Any]] | None = None,
     ) -> None:
         self.calls: list[tuple[str, str, Any]] = []
         self.fail_ids = fail_ids or set()
@@ -39,11 +41,17 @@ class FakeTransport:
         }
         # Completed tasks are served from the completed endpoint, NOT batch/check.
         self.completed = completed or []
+        self.columns = columns or []
+        self.members = members or []
 
     def request(self, method: str, path: str, *, params: Any = None, json: Any = None) -> Any:
         self.calls.append((method, path, deepcopy(json)))
         if path == "batch/check/0":
             return self.state
+        if path.startswith("column/project/"):
+            return self.columns
+        if path.startswith("project/") and path.endswith("/users"):
+            return self.members
         if path.endswith("/completed/"):
             return self.completed
         if method == "DELETE":
@@ -94,13 +102,17 @@ def make_client(
     fail_ids: set[str] | None = None,
     state: dict[str, Any] | None = None,
     completed: list[dict[str, Any]] | None = None,
+    columns: list[dict[str, Any]] | None = None,
+    members: list[dict[str, Any]] | None = None,
 ) -> tuple[TickTickClient, FakeTransport]:
     config = Config(
         session_token="tok",
         token_cache_path=tmp_path / "s.json",
         default_timezone=default_tz,
     )
-    ft = FakeTransport(fail_ids=fail_ids, state=state, completed=completed)
+    ft = FakeTransport(
+        fail_ids=fail_ids, state=state, completed=completed, columns=columns, members=members
+    )
     return TickTickClient(config, transport=ft), ft
 
 
@@ -424,6 +436,28 @@ def test_member_from_api() -> None:
         False,
         "write",
     )
+
+
+def test_list_columns_hits_column_endpoint(tmp_path) -> None:
+    cols = [
+        {"id": "c-new", "projectId": "p1", "name": "New", "sortOrder": -1},
+        {"id": "c-closed", "projectId": "p1", "name": "Closed", "sortOrder": 9},
+    ]
+    client, ft = make_client(tmp_path, columns=cols)
+    result = client.list_columns("p1")
+    assert ("GET", "column/project/p1", None) in ft.calls
+    assert [(c.id, c.name) for c in result] == [("c-new", "New"), ("c-closed", "Closed")]
+
+
+def test_list_project_members_hits_users_endpoint(tmp_path) -> None:
+    members = [
+        {"userId": 1, "displayName": "Ethan", "isOwner": True, "permission": "write"},
+        {"userId": 2, "displayName": "Annemarie", "isOwner": False, "permission": "write"},
+    ]
+    client, ft = make_client(tmp_path, members=members)
+    result = client.list_project_members("p1")
+    assert ("GET", "project/p1/users", None) in ft.calls
+    assert [(m.user_id, m.display_name) for m in result] == [(1, "Ethan"), (2, "Annemarie")]
 
 
 def test_note_part_b_methods(tmp_path: Path) -> None:

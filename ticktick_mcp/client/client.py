@@ -28,7 +28,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from ..config import Config
 from .dates import encode_due
 from .errors import APIError, PayloadError
-from .models import Project, Tag, Task
+from .models import Column, Member, Project, Tag, Task
 from .transport import Transport
 
 __all__ = ["TickTickClient"]
@@ -437,6 +437,30 @@ class TickTickClient:
                 continue
             projects.append(project)
         return projects
+
+    def list_columns(self, project_id: str) -> list[Column]:
+        """List a project's kanban columns (id → name).
+
+        Endpoint confirmed live: ``GET column/project/{projectId}`` →
+        ``[{id, projectId, name, sortOrder, ...}, ...]``. Use the returned ids as
+        ``column_id`` on create/update to place or move an item.
+        """
+        res = self._t.request("GET", f"column/project/{project_id}")
+        if not isinstance(res, list):
+            raise PayloadError("column endpoint returned a non-list body.")
+        return [Column.from_api(raw) for raw in res if isinstance(raw, dict)]
+
+    def list_project_members(self, project_id: str) -> list[Member]:
+        """List a shared project's members (resolve a person → assignee id).
+
+        Endpoint confirmed live: ``GET project/{projectId}/users`` (plural — the
+        singular ``/user`` is a decoy that returns bare ``true``). Use the
+        returned ``user_id`` as ``assignee`` on create/update.
+        """
+        res = self._t.request("GET", f"project/{project_id}/users")
+        if not isinstance(res, list):
+            raise PayloadError("project users endpoint returned a non-list body.")
+        return [Member.from_api(raw) for raw in res if isinstance(raw, dict)]
 
     def update_project(
         self,
