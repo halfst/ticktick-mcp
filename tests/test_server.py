@@ -14,7 +14,7 @@ from datetime import date, datetime
 import pytest
 
 from ticktick_mcp.client import APIError, AuthError
-from ticktick_mcp.client.models import Project, Tag, Task
+from ticktick_mcp.client.models import Column, Member, Project, Tag, Task
 from ticktick_mcp.server import handlers
 
 
@@ -24,12 +24,13 @@ class FakeClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
 
-    def create_task(self, title, *, project_id=None, content=None, due=None, priority=0, timezone=None):
-        self.calls.append(("create_task", {"title": title, "due": due, "timezone": timezone}))
+    def create_task(self, title, *, project_id=None, content=None, due=None, priority=0, timezone=None, column_id=None, assignee=None):
+        self.calls.append(("create_task", {"title": title, "due": due, "timezone": timezone, "column_id": column_id, "assignee": assignee}))
         is_all_day = isinstance(due, date) and not isinstance(due, datetime)
         return Task(
             id="t1", title=title, project_id=project_id or "inbox", content=content,
             due=due, is_all_day=is_all_day, priority=priority, timezone=timezone,
+            column_id=column_id, assignee=assignee,
         )
 
     def get_task(self, task_id):
@@ -48,6 +49,8 @@ class FakeClient:
         project_id=None,
         tags=None,
         timezone=None,
+        column_id=None,
+        assignee=None,
     ):
         self.calls.append(
             (
@@ -58,6 +61,8 @@ class FakeClient:
                     "clear_due": clear_due,
                     "tags": tags,
                     "timezone": timezone,
+                    "column_id": column_id,
+                    "assignee": assignee,
                 },
             )
         )
@@ -71,6 +76,8 @@ class FakeClient:
             priority=priority or 0,
             project_id=project_id or "inbox",
             tags=tags or [],
+            column_id=column_id,
+            assignee=assignee,
         )
 
     def complete_task(self, task_id):
@@ -81,9 +88,14 @@ class FakeClient:
         self.calls.append(("delete_task", {"task_id": task_id, "project_id": project_id}))
         return Task(id=task_id, title="A", project_id=project_id or "inbox")
 
-    def create_note(self, title, content, *, project_id=None):
-        self.calls.append(("create_note", {"title": title}))
-        return Task(id="n1", title=title, content=content, kind="NOTE", project_id=project_id or "inbox")
+    def create_note(self, title, content, *, project_id=None, column_id=None, assignee=None):
+        self.calls.append(
+            ("create_note", {"title": title, "column_id": column_id, "assignee": assignee})
+        )
+        return Task(
+            id="n1", title=title, content=content, kind="NOTE",
+            project_id=project_id or "inbox", column_id=column_id, assignee=assignee,
+        )
 
     def get_note(self, note_id):
         self.calls.append(("get_note", {"note_id": note_id}))
@@ -93,9 +105,15 @@ class FakeClient:
         self.calls.append(("list_notes", {"project_id": project_id, "include_completed": include_completed}))
         return [Task(id="n1", title="Note", content="# Body", kind="NOTE", project_id=project_id or "inbox")]
 
-    def update_note(self, note_id, *, title=None, content=None, project_id=None):
-        self.calls.append(("update_note", {"note_id": note_id, "title": title, "content": content}))
-        return Task(id=note_id, title=title or "Note", content=content, kind="NOTE", project_id=project_id or "inbox")
+    def update_note(self, note_id, *, title=None, content=None, project_id=None,
+                    column_id=None, assignee=None):
+        self.calls.append(
+            ("update_note", {"note_id": note_id, "column_id": column_id, "assignee": assignee})
+        )
+        return Task(
+            id=note_id, title=title or "N", content=content, kind="NOTE",
+            project_id=project_id or "inbox", column_id=column_id, assignee=assignee,
+        )
 
     def delete_note(self, note_id):
         self.calls.append(("delete_note", {"note_id": note_id}))
@@ -148,6 +166,14 @@ class FakeClient:
     def list_tasks(self, *, project_id=None, due_today=False, overdue=False, include_completed=False):
         self.calls.append(("list_tasks", {"project_id": project_id, "due_today": due_today}))
         return [Task(id="t1", title="A", due=date(2026, 9, 15), is_all_day=True)]
+
+    def list_columns(self, project_id):
+        self.calls.append(("list_columns", {"project_id": project_id}))
+        return [Column(id="c1", project_id=project_id, name="Closed", sort_order=9)]
+
+    def list_project_members(self, project_id):
+        self.calls.append(("list_project_members", {"project_id": project_id}))
+        return [Member(user_id=2, display_name="Annemarie", is_owner=False, permission="write")]
 
 
 class RaisingClient:
@@ -336,6 +362,8 @@ def test_app_registers_reference_tools() -> None:
         "list_notes",
         "update_note",
         "delete_note",
+        "list_columns",
+        "list_project_members",
     } <= names
 
 
@@ -404,3 +432,29 @@ def test_main_stdio_sets_no_auth_and_runs(monkeypatch) -> None:
     app.main()
     assert called.get("ran") is True
     assert app.mcp.auth is None
+
+
+# -- column and member list handlers + threaded write params -----------------
+
+def test_list_columns_handler_wraps_in_columns_key() -> None:
+    result = handlers.list_columns(FakeClient(), project_id="p1")
+    assert result == {"columns": [{"id": "c1", "project_id": "p1", "name": "Closed",
+                                    "sort_order": 9, "etag": None}]}
+
+
+def test_list_members_handler_wraps_in_members_key() -> None:
+    result = handlers.list_project_members(FakeClient(), project_id="p1")
+    assert result["members"][0]["display_name"] == "Annemarie"
+    assert result["members"][0]["user_id"] == 2
+
+
+def test_create_task_handler_threads_column_and_assignee() -> None:
+    fc = FakeClient()
+    out = handlers.create_task(fc, title="X", column_id="c1", assignee=2)
+    assert out["column_id"] == "c1" and out["assignee"] == 2
+
+
+def test_update_note_handler_threads_column() -> None:
+    fc = FakeClient()
+    out = handlers.update_note(fc, note_id="n1", column_id="c1")
+    assert out["column_id"] == "c1"

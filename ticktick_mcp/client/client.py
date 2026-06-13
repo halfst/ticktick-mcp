@@ -28,7 +28,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from ..config import Config
 from .dates import encode_due
 from .errors import APIError, PayloadError
-from .models import Project, Tag, Task
+from .models import Column, Member, Project, Tag, Task
 from .transport import Transport
 
 __all__ = ["TickTickClient"]
@@ -239,6 +239,8 @@ class TickTickClient:
         due: date | datetime | None = None,
         priority: int = 0,
         timezone: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Create a task. **This is the canonical reference method** — it implements
         the all-day date contract that every other dated task method reuses.
@@ -270,10 +272,20 @@ class TickTickClient:
             payload.update(
                 isAllDay=is_all_day, startDate=due_str, dueDate=due_str, timeZone=tz
             )
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         return self._add_task_payload(payload)
 
     def create_note(
-        self, title: str, content: str, *, project_id: str | None = None
+        self,
+        title: str,
+        content: str,
+        *,
+        project_id: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Create a Markdown note (a task with ``kind == "NOTE"``).
 
@@ -291,6 +303,10 @@ class TickTickClient:
             "kind": "NOTE",
             "content": content,
         }
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         return self._add_task_payload(payload)
 
     def create_project(self, name: str, *, color: str | None = None) -> Project:
@@ -385,6 +401,8 @@ class TickTickClient:
         project_id: str | None = None,
         tags: list[str] | None = None,
         timezone: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Update a task via ``batch/task`` while preserving existing date fields."""
         if due is not None and clear_due:
@@ -401,6 +419,10 @@ class TickTickClient:
             payload["projectId"] = project_id
         if tags is not None:
             payload["tags"] = [self._tag_name(tag) for tag in tags]
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         if clear_due:
             for key in ("isAllDay", "startDate", "dueDate", "timeZone"):
                 payload.pop(key, None)
@@ -437,6 +459,30 @@ class TickTickClient:
                 continue
             projects.append(project)
         return projects
+
+    def list_columns(self, project_id: str) -> list[Column]:
+        """List a project's kanban columns (id → name).
+
+        Endpoint confirmed live: ``GET column/project/{projectId}`` →
+        ``[{id, projectId, name, sortOrder, ...}, ...]``. Use the returned ids as
+        ``column_id`` on create/update to place or move an item.
+        """
+        res = self._t.request("GET", f"column/project/{project_id}")
+        if not isinstance(res, list):
+            raise PayloadError("column endpoint returned a non-list body.")
+        return [Column.from_api(raw) for raw in res if isinstance(raw, dict)]
+
+    def list_project_members(self, project_id: str) -> list[Member]:
+        """List a shared project's members (resolve a person → assignee id).
+
+        Endpoint confirmed live: ``GET project/{projectId}/users`` (plural — the
+        singular ``/user`` is a decoy that returns bare ``true``). Use the
+        returned ``user_id`` as ``assignee`` on create/update.
+        """
+        res = self._t.request("GET", f"project/{project_id}/users")
+        if not isinstance(res, list):
+            raise PayloadError("project users endpoint returned a non-list body.")
+        return [Member.from_api(raw) for raw in res if isinstance(raw, dict)]
 
     def update_project(
         self,
@@ -557,6 +603,8 @@ class TickTickClient:
         title: str | None = None,
         content: str | None = None,
         project_id: str | None = None,
+        column_id: str | None = None,
+        assignee: int | None = None,
     ) -> Task:
         """Update a Markdown note via ``batch/task``."""
         payload = self._find_raw_task(note_id, kind="NOTE")
@@ -566,6 +614,10 @@ class TickTickClient:
             payload["content"] = content
         if project_id is not None:
             payload["projectId"] = project_id
+        if column_id is not None:
+            payload["columnId"] = column_id
+        if assignee is not None:
+            payload["assignee"] = assignee
         payload["kind"] = "NOTE"
         return self._update_task_payload(payload, "note")
 

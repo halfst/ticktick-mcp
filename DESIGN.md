@@ -225,6 +225,25 @@ generic internal error without leaking internals.
 
 ---
 
+## 7. Columns + assignee contract (v0.2.0)
+
+Items carry `columnId` (string) and `assignee` (int user id) on the wire; these
+are surfaced as `column_id` / `assignee` on the `Task` (and note) model.
+
+**Endpoints (confirmed live, 2026-06):**
+- Columns: `GET column/project/{project_id}` — returns the ordered column list.
+- Shared-project members: `GET project/{project_id}/users` — note **plural**;
+  the singular `/user` endpoint is a decoy that returns bare `true`.
+
+**Writes:** `columnId` and `assignee` are set on the existing `batch/task` update
+payload — no dedicated assign endpoint exists. Passing `assignee=0` unassigns
+(reads back as `None`).
+
+**Read shape:** ids-only by design. No inline name enrichment — callers resolve
+names through `list_columns` and `list_project_members`.
+
+---
+
 ## Provenance
 
 Endpoint paths, payload shapes, and the date-field behavior in this document are

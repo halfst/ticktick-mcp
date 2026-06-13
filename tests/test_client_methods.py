@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ticktick_mcp.client import APIError, Project, Tag, Task, TickTickClient
+from ticktick_mcp.client import APIError, Column, Member, Project, Tag, Task, TickTickClient
 from ticktick_mcp.config import Config
 
 INBOX = "inbox-abc"
@@ -28,6 +28,8 @@ class FakeTransport:
         fail_ids: set[str] | None = None,
         state: dict[str, Any] | None = None,
         completed: list[dict[str, Any]] | None = None,
+        columns: list[dict[str, Any]] | None = None,
+        members: list[dict[str, Any]] | None = None,
     ) -> None:
         self.calls: list[tuple[str, str, Any]] = []
         self.fail_ids = fail_ids or set()
@@ -39,11 +41,17 @@ class FakeTransport:
         }
         # Completed tasks are served from the completed endpoint, NOT batch/check.
         self.completed = completed or []
+        self.columns = columns or []
+        self.members = members or []
 
     def request(self, method: str, path: str, *, params: Any = None, json: Any = None) -> Any:
         self.calls.append((method, path, deepcopy(json)))
         if path == "batch/check/0":
             return self.state
+        if path.startswith("column/project/"):
+            return self.columns
+        if path.startswith("project/") and path.endswith("/users"):
+            return self.members
         if path.endswith("/completed/"):
             return self.completed
         if method == "DELETE":
@@ -94,13 +102,17 @@ def make_client(
     fail_ids: set[str] | None = None,
     state: dict[str, Any] | None = None,
     completed: list[dict[str, Any]] | None = None,
+    columns: list[dict[str, Any]] | None = None,
+    members: list[dict[str, Any]] | None = None,
 ) -> tuple[TickTickClient, FakeTransport]:
     config = Config(
         session_token="tok",
         token_cache_path=tmp_path / "s.json",
         default_timezone=default_tz,
     )
-    ft = FakeTransport(fail_ids=fail_ids, state=state, completed=completed)
+    ft = FakeTransport(
+        fail_ids=fail_ids, state=state, completed=completed, columns=columns, members=members
+    )
     return TickTickClient(config, transport=ft), ft
 
 
@@ -379,6 +391,141 @@ def test_tag_part_b_methods(tmp_path: Path) -> None:
     deleted = client.delete_tag("Deep Work")
     assert ft.calls[-1] == ("DELETE", "tag?name=deep%20work", None)
     assert deleted.name == "deep work"
+
+
+def test_task_from_api_surfaces_column_and_assignee() -> None:
+    raw = {
+        "id": "t1",
+        "projectId": "p1",
+        "title": "Shared",
+        "kind": "TEXT",
+        "columnId": "col-new",
+        "assignee": 121024798,
+    }
+    task = Task.from_api(raw)
+    assert task.column_id == "col-new"
+    assert task.assignee == 121024798
+
+
+def test_task_from_api_normalizes_zero_assignee_to_none() -> None:
+    task = Task.from_api({"id": "t2", "assignee": 0})
+    assert task.assignee is None
+    assert task.column_id is None
+
+
+def test_column_from_api() -> None:
+    col = Column.from_api(
+        {"id": "c1", "projectId": "p1", "name": "Closed", "sortOrder": 131071, "etag": "e1"}
+    )
+    assert (col.id, col.project_id, col.name, col.sort_order) == ("c1", "p1", "Closed", 131071)
+
+
+def test_member_from_api() -> None:
+    m = Member.from_api(
+        {
+            "userId": 121024798,
+            "username": "a@example.com",
+            "displayName": "Annemarie",
+            "isOwner": False,
+            "permission": "write",
+        }
+    )
+    assert (m.user_id, m.display_name, m.is_owner, m.permission) == (
+        121024798,
+        "Annemarie",
+        False,
+        "write",
+    )
+
+
+def test_list_columns_hits_column_endpoint(tmp_path) -> None:
+    cols = [
+        {"id": "c-new", "projectId": "p1", "name": "New", "sortOrder": -1},
+        {"id": "c-closed", "projectId": "p1", "name": "Closed", "sortOrder": 9},
+    ]
+    client, ft = make_client(tmp_path, columns=cols)
+    result = client.list_columns("p1")
+    assert ("GET", "column/project/p1", None) in ft.calls
+    assert [(c.id, c.name) for c in result] == [("c-new", "New"), ("c-closed", "Closed")]
+
+
+def test_list_project_members_hits_users_endpoint(tmp_path) -> None:
+    members = [
+        {"userId": 1, "displayName": "Ethan", "isOwner": True, "permission": "write"},
+        {"userId": 2, "displayName": "Annemarie", "isOwner": False, "permission": "write"},
+    ]
+    client, ft = make_client(tmp_path, members=members)
+    result = client.list_project_members("p1")
+    assert ("GET", "project/p1/users", None) in ft.calls
+    assert [(m.user_id, m.display_name) for m in result] == [(1, "Ethan"), (2, "Annemarie")]
+
+
+def test_create_task_sets_column_and_assignee(tmp_path) -> None:
+    client, ft = make_client(tmp_path)
+    client.create_task("X", project_id="p1", column_id="col-new", assignee=121024798)
+    add = ft.last_add("batch/task")
+    assert add["columnId"] == "col-new"
+    assert add["assignee"] == 121024798
+
+
+def test_create_task_omits_column_and_assignee_when_unset(tmp_path) -> None:
+    client, ft = make_client(tmp_path)
+    client.create_task("X", project_id="p1")
+    add = ft.last_add("batch/task")
+    assert "columnId" not in add and "assignee" not in add
+
+
+def test_create_note_sets_column_and_assignee(tmp_path) -> None:
+    client, ft = make_client(tmp_path)
+    client.create_note("X", "body", project_id="p1", column_id="col-new", assignee=121024798)
+    add = ft.last_add("batch/task")
+    assert add["columnId"] == "col-new"
+    assert add["assignee"] == 121024798
+
+
+def test_update_task_sets_column_and_assignee(tmp_path) -> None:
+    state = {
+        "inboxId": INBOX,
+        "syncTaskBean": {"update": [{"id": "t1", "projectId": "p1", "title": "A", "kind": "TEXT"}]},
+        "projectProfiles": [],
+        "tags": [],
+    }
+    client, ft = make_client(tmp_path, state=state)
+    client.update_task("t1", column_id="col-closed", assignee=121024798)
+    upd = ft.last_update("batch/task")
+    assert upd["columnId"] == "col-closed"
+    assert upd["assignee"] == 121024798
+
+
+def test_update_task_assignee_zero_reaches_wire(tmp_path) -> None:
+    # assignee=0 is the unassign value and MUST reach the payload — guards the
+    # `is not None` check against being weakened to a truthiness test.
+    state = {
+        "inboxId": INBOX,
+        "syncTaskBean": {"update": [{"id": "t1", "projectId": "p1", "title": "A", "kind": "TEXT"}]},
+        "projectProfiles": [],
+        "tags": [],
+    }
+    client, ft = make_client(tmp_path, state=state)
+    client.update_task("t1", assignee=0)
+    upd = ft.last_update("batch/task")
+    assert upd["assignee"] == 0
+
+
+def test_update_note_sets_column(tmp_path) -> None:
+    state = {
+        "inboxId": INBOX,
+        "syncTaskBean": {
+            "update": [{"id": "n1", "projectId": "p1", "title": "N", "kind": "NOTE"}]
+        },
+        "projectProfiles": [],
+        "tags": [],
+    }
+    client, ft = make_client(tmp_path, state=state)
+    client.update_note("n1", column_id="col-closed", assignee=121024798)
+    upd = ft.last_update("batch/task")
+    assert upd["columnId"] == "col-closed"
+    assert upd["assignee"] == 121024798
 
 
 def test_note_part_b_methods(tmp_path: Path) -> None:

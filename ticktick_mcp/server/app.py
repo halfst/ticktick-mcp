@@ -50,6 +50,8 @@ def create_task(
     content: str | None = None,
     priority: int = 0,
     timezone: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     """Create a task.
 
@@ -64,6 +66,10 @@ def create_task(
         priority: 0 none, 1 low, 3 medium, 5 high.
         timezone: IANA zone (e.g. 'America/Chicago') for a TIMED due date; ignored
             for all-day. Defaults to the server's configured timezone.
+        column_id: Place the task in this kanban column id (from list_columns).
+            Omit to use the project default. Only meaningful in kanban projects.
+        assignee: User id to assign the task to (from list_project_members). Omit
+            to leave unassigned. Only meaningful in shared projects.
 
     Returns:
         The created task object, or an {"error": ...} object on failure. An all-day
@@ -77,12 +83,18 @@ def create_task(
         content=content,
         priority=priority,
         timezone=timezone,
+        column_id=column_id,
+        assignee=assignee,
     )
 
 
 @mcp.tool
 def create_note(
-    title: str, content: str, project_id: str | None = None
+    title: str,
+    content: str,
+    project_id: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     """Create a Markdown note (a note-kind item whose body is Markdown).
 
@@ -90,12 +102,21 @@ def create_note(
         title: The note title.
         content: Markdown body — headings, lists, bold, etc. render in TickTick.
         project_id: Target project id. Defaults to the inbox.
+        column_id: Place the note in this kanban column id (from list_columns).
+            Omit to use the project default. Only meaningful in kanban projects.
+        assignee: User id to assign the note to (from list_project_members). Omit
+            to leave unassigned. Only meaningful in shared projects.
 
     Returns:
         The created note object (with "kind": "NOTE"), or an {"error": ...} object.
     """
     return handlers.create_note(
-        get_client(), title=title, content=content, project_id=project_id
+        get_client(),
+        title=title,
+        content=content,
+        project_id=project_id,
+        column_id=column_id,
+        assignee=assignee,
     )
 
 
@@ -165,6 +186,8 @@ def update_task(
     project_id: str | None = None,
     tags: list[str] | None = None,
     timezone: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     """Update a task.
 
@@ -179,6 +202,11 @@ def update_task(
         project_id: Move the task to this project id.
         tags: Replace the task's tag list with these tag names.
         timezone: IANA zone for a timed due date.
+        column_id: Place the task in this kanban column id (from list_columns).
+            Omit to use the project default. Only meaningful in kanban projects.
+        assignee: User id to assign the task to (from list_project_members). Omit
+            to leave it unchanged, or pass 0 to clear an existing assignee. Only
+            meaningful in shared projects.
 
     Returns:
         The updated task object, or an {"error": ...} object on failure.
@@ -194,6 +222,8 @@ def update_task(
         project_id=project_id,
         tags=tags,
         timezone=timezone,
+        column_id=column_id,
+        assignee=assignee,
     )
 
 
@@ -248,6 +278,36 @@ def list_projects(include_closed: bool = False) -> dict[str, Any]:
         {"projects": [ ...project objects... ]}, or an {"error": ...} object.
     """
     return handlers.list_projects(get_client(), include_closed=include_closed)
+
+
+@mcp.tool
+def list_columns(project_id: str) -> dict[str, Any]:
+    """List a project's kanban columns (swimlanes).
+
+    Args:
+        project_id: The project id.
+
+    Returns:
+        {"columns": [{"id", "name", "sort_order", ...}]}, or an {"error": ...}
+        object. Use a column "id" as the column_id argument on create/update to
+        place or move an item (e.g. move a note to "Closed").
+    """
+    return handlers.list_columns(get_client(), project_id=project_id)
+
+
+@mcp.tool
+def list_project_members(project_id: str) -> dict[str, Any]:
+    """List the members of a shared project (to resolve a person to an id).
+
+    Args:
+        project_id: The project id.
+
+    Returns:
+        {"members": [{"user_id", "display_name", "username", "is_owner",
+        "permission"}]}, or an {"error": ...} object. Use a "user_id" as the
+        assignee argument on create_task/update_task.
+    """
+    return handlers.list_project_members(get_client(), project_id=project_id)
 
 
 @mcp.tool
@@ -410,6 +470,8 @@ def update_note(
     title: str | None = None,
     content: str | None = None,
     project_id: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     """Update a Markdown note.
 
@@ -418,6 +480,11 @@ def update_note(
         title: New note title; omit to keep the current title.
         content: New Markdown body; omit to keep the current body.
         project_id: Move the note to this project id.
+        column_id: Place the note in this kanban column id (from list_columns).
+            Omit to use the project default. Only meaningful in kanban projects.
+        assignee: User id to assign the note to (from list_project_members). Omit
+            to leave it unchanged, or pass 0 to clear an existing assignee. Only
+            meaningful in shared projects.
 
     Returns:
         The updated note object, or an {"error": ...} object on failure.
@@ -428,6 +495,8 @@ def update_note(
         title=title,
         content=content,
         project_id=project_id,
+        column_id=column_id,
+        assignee=assignee,
     )
 
 

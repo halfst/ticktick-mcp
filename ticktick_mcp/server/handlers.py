@@ -17,7 +17,7 @@ from functools import wraps
 from typing import Any, Callable
 
 from ..client import APIError, AuthError, PayloadError, TickTickClient, TickTickError
-from ..client.models import Project, Tag, Task
+from ..client.models import Column, Member, Project, Tag, Task
 
 __all__ = [
     "create_task",
@@ -33,6 +33,8 @@ __all__ = [
     "create_project",
     "get_project",
     "list_projects",
+    "list_columns",
+    "list_project_members",
     "update_project",
     "delete_project",
     "create_tag",
@@ -120,6 +122,14 @@ def _tag_dict(tag: Tag) -> dict[str, Any]:
     return tag.model_dump(mode="json")
 
 
+def _column_dict(column: Column) -> dict[str, Any]:
+    return column.model_dump(mode="json")
+
+
+def _member_dict(member: Member) -> dict[str, Any]:
+    return member.model_dump(mode="json")
+
+
 @_safe
 def create_task(
     client: TickTickClient,
@@ -130,6 +140,8 @@ def create_task(
     content: str | None = None,
     priority: int = 0,
     timezone: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     task = client.create_task(
         title,
@@ -138,6 +150,8 @@ def create_task(
         due=parse_due(due),
         priority=priority,
         timezone=timezone,
+        column_id=column_id,
+        assignee=assignee,
     )
     return _task_dict(task)
 
@@ -149,8 +163,11 @@ def create_note(
     title: str,
     content: str,
     project_id: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
-    return _task_dict(client.create_note(title, content, project_id=project_id))
+    return _task_dict(client.create_note(title, content, project_id=project_id,
+                                         column_id=column_id, assignee=assignee))
 
 
 @_safe
@@ -198,6 +215,8 @@ def update_task(
     project_id: str | None = None,
     tags: list[str] | None = None,
     timezone: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     parsed_due = parse_due(due)
     if parsed_due is not None and clear_due:
@@ -212,6 +231,8 @@ def update_task(
         project_id=project_id,
         tags=tags,
         timezone=timezone,
+        column_id=column_id,
+        assignee=assignee,
     )
     return _task_dict(task)
 
@@ -239,6 +260,18 @@ def list_projects(
 ) -> dict[str, Any]:
     projects = client.list_projects(include_closed=include_closed)
     return {"projects": [_project_dict(p) for p in projects]}
+
+
+@_safe
+def list_columns(client: TickTickClient, *, project_id: str) -> dict[str, Any]:
+    cols = client.list_columns(project_id)
+    return {"columns": [_column_dict(c) for c in cols]}
+
+
+@_safe
+def list_project_members(client: TickTickClient, *, project_id: str) -> dict[str, Any]:
+    members = client.list_project_members(project_id)
+    return {"members": [_member_dict(m) for m in members]}
 
 
 @_safe
@@ -326,12 +359,16 @@ def update_note(
     title: str | None = None,
     content: str | None = None,
     project_id: str | None = None,
+    column_id: str | None = None,
+    assignee: int | None = None,
 ) -> dict[str, Any]:
     note = client.update_note(
         note_id,
         title=title,
         content=content,
         project_id=project_id,
+        column_id=column_id,
+        assignee=assignee,
     )
     return _task_dict(note)
 

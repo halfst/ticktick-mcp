@@ -37,11 +37,14 @@ Markdown notes — and it's built to run as more than a toy:
 ## Tool surface
 
 - **Tasks** — create, read, list (by project, due-today, overdue, completed),
-  update, complete, delete.
+  update, complete, delete; set a kanban `column_id` and an `assignee` on
+  create/update.
 - **Projects** — create, read, list, update, delete.
+- **Columns & members** — list a project's kanban columns (id → name) and a
+  shared project's members (resolve a person → assignee id).
 - **Tags** — list, create, rename, delete, and add/remove on a task.
 - **Markdown notes** — create, read, list, update, delete (notes are note-kind
-  items whose body is Markdown).
+  items whose body is Markdown); also carry `column_id`/`assignee`.
 
 Out of scope: filters / smart lists, habits, focus / pomodoro, attachments.
 
@@ -90,7 +93,7 @@ Drop this `compose.yaml` next to your `.env`:
 ```yaml
 services:
   ticktick-mcp:
-    image: ghcr.io/halfst/ticktick-mcp:0.1.2
+    image: ghcr.io/halfst/ticktick-mcp:0.2.0
     container_name: ticktick-mcp
     restart: unless-stopped
     env_file:
@@ -109,7 +112,7 @@ volumes:
   ticktick-token:
 ```
 
-The image is tagged by version (`0.1.2`, `0.1`) plus a moving `latest` — pin a
+The image is tagged by version (`0.2.0`, `0.2`) plus a moving `latest` — pin a
 version for deploys, or use `latest` for "always newest".
 
 > The HTTP transport **requires a caller-auth mode**: set `TICKTICK_MCP_AUTH` in
